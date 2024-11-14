@@ -3,12 +3,12 @@ import "./Bottom.css";
 
 function Bottom() {
   return (
-    <div className="bottomdiv">
+    <footer className="bottomdiv">
       <p className="bottomp">
         im not a designer but i tried my best &#128517;
         <br /> © Made by Yuval Elarat{" "}
       </p>
-    </div>
+    </footer>
   );
 }
 
