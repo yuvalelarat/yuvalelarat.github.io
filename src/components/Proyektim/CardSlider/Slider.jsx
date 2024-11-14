@@ -12,10 +12,18 @@ function Slider({ cards, currentIndex, handlePrev, handleNext }) {
         <h4 style={{ marginTop: 0, marginBottom: "5px" }}>
           {cards[currentIndex].text}
         </h4>
-        <p className="card-info" style={{ margin: 0 }}>{cards[currentIndex].info}</p>
+        <p className="card-info" style={{ margin: 0 }}>
+          {cards[currentIndex].info}
+        </p>
         <p style={{ margin: 0, textDecoration: "underline" }}>Made with:</p>
         <p style={{ margin: 0 }}>{cards[currentIndex].tech}</p>
-        <button className="code-link">Source code on github</button>
+        <a
+          href={cards[currentIndex].link}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <button className="code-link">Source code on github</button>
+        </a>
       </div>
       <button className="slider-button right" onClick={handleNext}>
         ❯

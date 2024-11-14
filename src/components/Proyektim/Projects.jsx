@@ -13,6 +13,7 @@ function Projects() {
       text: "Tagia",
       info: "CS degree project: website for ordering and managing events.",
       tech: "React, Nodejs(Express), MongoDB",
+      link: "https://github.com/yuvalelarat/order-management-system"
     },
     {
       id: 2,
@@ -20,6 +21,7 @@ function Projects() {
       text: "Poneglyph",
       info: "Encode/decode text in images and download or share with others users.",
       tech: "Python, Flask, SQLite, Bootsrap",
+      link: "https://github.com/yuvalelarat/Poneglyph"
     },
     {
       id: 3,
@@ -27,6 +29,7 @@ function Projects() {
       text: "Zombie Game",
       info: "Zombie game for OOP, all the characters design created by me",
       tech: "C#, WinForms",
+      link: "https://github.com/yuvalelarat/Zombie-Game"
     },
     {
       id: 4,
@@ -34,6 +37,7 @@ function Projects() {
       text: "Discord Music Bot",
       info: "Discord bot that can play music/playlists from YouTube.",
       tech: "Python",
+      link: "https://github.com/yuvalelarat/Discord-Music-Bot"
     },
   ];
 
