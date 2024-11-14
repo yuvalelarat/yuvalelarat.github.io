@@ -30,7 +30,7 @@ const ParticlesComponent = (props) => {
     () => ({
       particles: {
         number: {
-          value: 100,
+          value: 55,
           density: {
             enable: true,
             value_area: 800,
