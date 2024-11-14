@@ -29,15 +29,27 @@
 
 @media (max-width: 555px) {
   .card-img {
-    width: 150px;
-    height: 100px;
+    width: 180px;
+    height: 130px;
   }
 }
 
 @media (max-width: 415px) {
   .card-img {
+    width: 180px;
+    height: 110px;
+  }
+}
+
+@media (max-width: 415px) {
+  .card-img {
+    width: 180px;
+    height: 110px;
+  }
+}@media (max-width: 406px) {
+  .card-img {
     width: 100px;
-    height: 50px;
+    height: 110px;
   }
 }
 

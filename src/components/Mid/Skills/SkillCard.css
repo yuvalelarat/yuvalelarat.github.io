@@ -36,7 +36,7 @@
   /* Mobile responsive layout */
 @media (max-width: 768px) {
     .gallery {
-      grid-template-columns: repeat(3, 1fr); /* 3 items per row on medium screens */
+      grid-template-columns: repeat(4, 1fr); /* 3 items per row on medium screens */
       justify-items: center;
     }
   
@@ -54,7 +54,7 @@
   /* Smaller mobile screens */
   @media (max-width: 480px) {
     .gallery {
-      grid-template-columns: repeat(2, 1fr); /* 1 item per row on small screens */
+      grid-template-columns: repeat(5, 1fr); /* 1 item per row on small screens */
       justify-items: center;
     }
   
