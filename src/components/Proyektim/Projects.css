@@ -1,0 +1,17 @@
+/* CardSlider.css */
+.slider-container {
+    position: relative;
+    width: 80%;
+    max-width: 600px;
+    margin: 0 auto;
+    text-align: center;
+  }
+
+  .projects-title{
+    text-decoration: underline;
+    text-align: "center";
+    margin: 0;
+  }
+
+
+  

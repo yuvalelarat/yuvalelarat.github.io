@@ -1,0 +1,74 @@
+import React, { useState } from "react";
+import Slider from "./CardSlider/Slider"; // import Slider component
+import DotsContainer from "./CardSlider/DotsContainer"; // import DotsContainer component
+import "./Projects.css";
+
+function Projects() {
+  const [currentIndex, setCurrentIndex] = useState(0);
+
+  const cards = [
+    {
+      id: 1,
+      img: "project pics/tagia.png",
+      text: "Tagia",
+      info: "CS degree project: website for ordering and managing events.",
+      tech: "React, Nodejs(Express), MongoDB",
+    },
+    {
+      id: 2,
+      img: "project pics/poneglyph.png",
+      text: "Poneglyph",
+      info: "Encode/decode text in images and download or share with others users.",
+      tech: "Python, Flask, SQLite, Bootsrap",
+    },
+    {
+      id: 3,
+      img: "project pics/zombiegame.png",
+      text: "Zombie Game",
+      info: "Zombie game for OOP, all the characters design created by me",
+      tech: "C#, WinForms",
+    },
+    {
+      id: 4,
+      img: "project pics/discordbot.png",
+      text: "Discord Music Bot",
+      info: "Discord bot that can play music/playlists from YouTube.",
+      tech: "Python",
+    },
+  ];
+
+  const handlePrev = () => {
+    setCurrentIndex((prevIndex) =>
+      prevIndex === 0 ? cards.length - 1 : prevIndex - 1
+    );
+  };
+
+  const handleNext = () => {
+    setCurrentIndex((prevIndex) =>
+      prevIndex === cards.length - 1 ? 0 : prevIndex + 1
+    );
+  };
+
+  const handleDotClick = (index) => {
+    setCurrentIndex(index);
+  };
+
+  return (
+    <div className="slider-container">
+      <h4 className="projects-title">My projects:</h4>
+      <Slider
+        cards={cards}
+        currentIndex={currentIndex}
+        handlePrev={handlePrev}
+        handleNext={handleNext}
+      />
+      <DotsContainer
+        cards={cards}
+        currentIndex={currentIndex}
+        handleDotClick={handleDotClick}
+      />
+    </div>
+  );
+}
+
+export default Projects;

@@ -1,0 +1,10 @@
+.bottomdiv {
+    display: flex;
+    justify-content: center;
+    margin-top: 20px;
+}
+
+.bottomp{
+    font-size: 13px;
+    text-align: center;
+}
