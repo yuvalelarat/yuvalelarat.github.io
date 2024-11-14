@@ -46,7 +46,7 @@
     }
   
     .image-text {
-      font-size: 12px; /* Adjust text size for smaller screens */
+      font-size: 14px; /* Adjust text size for smaller screens */
       text-align:center
     }
   }
@@ -59,12 +59,12 @@
     }
   
     .gallery-item {
-      width: 30px; /* Further reduce image size for small screens */
-      height: 30px;
+      width: 50px; /* Further reduce image size for small screens */
+      height: 50px;
     }
   
     .image-text {
-      font-size: 10px; /* Further reduce text size for small screens */
+      font-size: 13px; /* Further reduce text size for small screens */
       text-align:center
     }
   }
