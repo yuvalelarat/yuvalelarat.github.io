@@ -9,7 +9,7 @@ function Projects() {
   const cards = [
     {
       id: 1,
-      img: "project pics/tagia.png",
+      img: "project pics/tagiac.png",
       text: "Tagia",
       info: "CS degree project for ordering and managing events (backend team).",
       tech: "React, Nodejs(Express), MongoDB",
@@ -17,7 +17,7 @@ function Projects() {
     },
     {
       id: 2,
-      img: "project pics/poneglyph.png",
+      img: "project pics/poneglyphc.png",
       text: "Poneglyph",
       info: "Encode/decode text in images and download or share with others users.",
       tech: "Python, Flask, SQLite, Bootsrap",
@@ -25,7 +25,7 @@ function Projects() {
     },
     {
       id: 3,
-      img: "project pics/zombiegame.png",
+      img: "project pics/zombiegamec.png",
       text: "Zombie Game",
       info: "OOP course project, all the characters designs were created by me.",
       tech: "C#, WinForms",
@@ -33,7 +33,7 @@ function Projects() {
     },
     {
       id: 4,
-      img: "project pics/discordbot.png",
+      img: "project pics/discordbotc.png",
       text: "Discord Music Bot",
       info: "Discord bot that can play music/playlists from YouTube.",
       tech: "Python",
