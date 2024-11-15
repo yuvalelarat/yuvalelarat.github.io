@@ -5,7 +5,7 @@ function Bottom() {
   return (
     <footer className="bottomdiv">
       <p className="bottomp">
-        im not a designer but i tried my best &#128517;
+        im know nothing about design but i tried my best &#128517;
         <br /> © Made by Yuval Elarat{" "}
       </p>
     </footer>

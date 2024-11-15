@@ -2,9 +2,9 @@
     display: grid;
     grid-template-columns: repeat(5, 1fr);
     justify-items: center;
-    gap: 10px; /* Space between the images */
+    gap: 10px; 
     flex-wrap: wrap;
-    margin: 20px; /* Optional margin to give some space around the gallery */
+    margin: 20px; 
   }
   
   .gallery-item-container{
@@ -14,57 +14,55 @@
     align-items: center;
   }
   .gallery-item {
-    width: 50px; /* Size of the mini images */
+    width: 50px; 
     height: 50px;
-    object-fit: cover; /* Ensures the images cover the area while maintaining their aspect ratio */
-    border-radius: 8px; /* Optional: rounded corners for the images */
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* Optional: adds a subtle shadow effect */
+    object-fit: cover; 
+    border-radius: 8px; 
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); 
     transition: transform 0.3s ease, box-shadow 0.3s ease;
   }
   
   .gallery-item:hover {
-    transform: scale(1.1); /* Slight zoom effect on hover */
-    transition: transform 0.3s ease; /* Smooth transition for the hover effect */
+    transform: scale(1.1); 
+    transition: transform 0.3s ease; 
   }
 
   .image-text {
-    margin-top: 8px; /* Space between image and text */
-    font-size: 14px; /* Text size */
+    margin-top: 8px; 
+    font-size: 14px; 
     text-align:center
   }
 
-  /* Mobile responsive layout */
 @media (max-width: 768px) {
     .gallery {
-      grid-template-columns: repeat(4, 1fr); /* 3 items per row on medium screens */
+      grid-template-columns: repeat(4, 1fr); 
       justify-items: center;
     }
   
     .gallery-item {
-      width: 40px; /* Adjust image size for smaller screens */
+      width: 40px; 
       height: 40px;
     }
   
     .image-text {
-      font-size: 14px; /* Adjust text size for smaller screens */
+      font-size: 14px; 
       text-align:center
     }
   }
   
-  /* Smaller mobile screens */
   @media (max-width: 480px) {
     .gallery {
-      grid-template-columns: repeat(5, 1fr); /* 1 item per row on small screens */
+      grid-template-columns: repeat(5, 1fr); 
       justify-items: center;
     }
   
     .gallery-item {
-      width: 50px; /* Further reduce image size for small screens */
+      width: 50px; 
       height: 50px;
     }
   
     .image-text {
-      font-size: 13px; /* Further reduce text size for small screens */
+      font-size: 13px; 
       text-align:center
     }
   }

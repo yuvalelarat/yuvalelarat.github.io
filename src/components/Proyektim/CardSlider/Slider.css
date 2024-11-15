@@ -8,7 +8,7 @@
 .card {
   width: 100%;
   text-align: center;
-  height: 350px; /* Adjust to a height that fits all content */
+  height: 350px; 
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -22,9 +22,9 @@
 }
 
 .card-info {
-  height: 50px; /* Set this to the desired height */
-  overflow: hidden; /* To handle overflow if text exceeds the height */
-  text-overflow: ellipsis; /* Optional, to add '...' for long text */
+  height: 50px; 
+  overflow: hidden; 
+  text-overflow: ellipsis; 
 }
 
 @media (max-width: 555px) {
