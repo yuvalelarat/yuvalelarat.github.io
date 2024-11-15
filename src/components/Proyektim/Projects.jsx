@@ -1,6 +1,6 @@
 import React, { useState } from "react";
-import Slider from "./CardSlider/Slider"; // import Slider component
-import DotsContainer from "./CardSlider/DotsContainer"; // import DotsContainer component
+import Slider from "./CardSlider/Slider"; 
+import DotsContainer from "./CardSlider/DotsContainer"; 
 import "./Projects.css";
 
 function Projects() {
@@ -27,7 +27,7 @@ function Projects() {
       id: 3,
       img: "project pics/zombiegame.png",
       text: "Zombie Game",
-      info: "Zombie game for OOP, all the characters design created by me",
+      info: "Zombie game for OOP, all the characters design created by me.",
       tech: "C#, WinForms",
       link: "https://github.com/yuvalelarat/Zombie-Game"
     },
