@@ -8,6 +8,9 @@ function Education({ style }) {
         <li>
           BA Economics & Management - Bar Ilan university (graduate)
         </li>
+        <li>
+        Practical Engineer - Industrial and management (graduate)
+        </li>
       </ul>
     </div>
   );
