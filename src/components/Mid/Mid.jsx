@@ -12,12 +12,12 @@ function About() {
 
   const social = [
     {
-      img: "social logos/linkedin.png",
+      img: "social logos/linkedinc.png",
       link: "https://www.linkedin.com/in/yuvalelarat/",
       alt: "LinkedIn",
     },
     {
-      img: "social logos/github.png",
+      img: "social logos/githubc1.png",
       link: "https://github.com/yuvalelarat",
       alt: "GitHub",
     },
