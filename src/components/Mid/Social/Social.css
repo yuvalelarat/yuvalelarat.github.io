@@ -1,6 +1,6 @@
 .social-icon-link {
   display: inline-flex;
-  margin: 0 10px;
+  padding: 0 10px;
   transition: transform 0.3s ease;
 }
 

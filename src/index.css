@@ -1,8 +1,7 @@
-/* Apply styles to the entire page */
 html, body {
-  height: 100%; /* Ensure the borders extend to full height */
-  margin: 0; /* Remove default margin */
-  padding: 0; /* Remove default padding */
+  height: 100%; 
+  margin: 0; 
+  padding: 0; 
 }
 
 body {
@@ -13,9 +12,6 @@ body {
   color-scheme: light dark;
   color: black;
   background-color: rgba(255, 255, 255);
-
-
-  /* Add borders to the sides */
 }
 :root{
   display: flex;

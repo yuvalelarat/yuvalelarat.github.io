@@ -4,7 +4,7 @@
     justify-items: center;
     gap: 10px; 
     flex-wrap: wrap;
-    margin: 20px; 
+    padding: 20px; 
   }
   
   .gallery-item-container{
@@ -28,7 +28,8 @@
   }
 
   .image-text {
-    margin-top: 8px; 
+    padding: 8px 0px 14px; 
+    margin: 0;
     font-size: 14px; 
     text-align:center
   }
