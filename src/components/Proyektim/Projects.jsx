@@ -1,6 +1,6 @@
 import React, { useState } from "react";
-import Slider from "./CardSlider/Slider"; 
-import DotsContainer from "./CardSlider/DotsContainer"; 
+import Slider from "./CardSlider/Slider";
+import DotsContainer from "./CardSlider/DotsContainer";
 import "./Projects.css";
 
 function Projects() {
@@ -11,9 +11,9 @@ function Projects() {
       id: 1,
       img: "project pics/tagia.png",
       text: "Tagia",
-      info: "CS degree project: website for ordering and managing events.",
+      info: "CS degree project: website for ordering and managing events (backend team).",
       tech: "React, Nodejs(Express), MongoDB",
-      link: "https://github.com/yuvalelarat/order-management-system"
+      link: "https://github.com/yuvalelarat/order-management-system",
     },
     {
       id: 2,
@@ -21,15 +21,15 @@ function Projects() {
       text: "Poneglyph",
       info: "Encode/decode text in images and download or share with others users.",
       tech: "Python, Flask, SQLite, Bootsrap",
-      link: "https://github.com/yuvalelarat/Poneglyph"
+      link: "https://github.com/yuvalelarat/Poneglyph",
     },
     {
       id: 3,
       img: "project pics/zombiegame.png",
       text: "Zombie Game",
-      info: "Zombie game for OOP, all the characters design created by me.",
+      info: "Zombie game for OOP course, all the characters designs were created by me.",
       tech: "C#, WinForms",
-      link: "https://github.com/yuvalelarat/Zombie-Game"
+      link: "https://github.com/yuvalelarat/Zombie-Game",
     },
     {
       id: 4,
@@ -37,7 +37,7 @@ function Projects() {
       text: "Discord Music Bot",
       info: "Discord bot that can play music/playlists from YouTube.",
       tech: "Python",
-      link: "https://github.com/yuvalelarat/Discord-Music-Bot"
+      link: "https://github.com/yuvalelarat/Discord-Music-Bot",
     },
   ];
 
