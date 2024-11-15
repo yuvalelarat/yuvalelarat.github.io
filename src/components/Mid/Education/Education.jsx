@@ -1,4 +1,3 @@
-import "./Education.css";
 
 function Education({ style }) {
   return (

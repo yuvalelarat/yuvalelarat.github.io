@@ -1,4 +1,3 @@
-import "./Skills.css";
 import SkillCard from "./SkillCard";
 
 function Skills({ style }) {
