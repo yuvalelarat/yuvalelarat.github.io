@@ -11,7 +11,7 @@ function Projects() {
             id: 1,
             img: "project pics/TripSync.png",
             text: "TripSync",
-            info: "(UNFINISHED) collaborative trip planning with friends!.",
+            info: "(UNFINISHED) Collaborative trip planning with friends!",
             tech: "React, Nodejs(Express), postgreSQL",
             link: "https://github.com/yuvalelarat/TripSync",
         },
