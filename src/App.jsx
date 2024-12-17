@@ -5,14 +5,14 @@ import Bottom from './components/Bottom/Bottom'
 
 function App() {
 
-  return (
-    <>
-    <Top/>
-    <About/>
-    <Projects/>
-    <Bottom/>
-    </>
-  )
+    return (
+        <>
+            <Top/>
+            <About/>
+            <Projects/>
+            <Bottom/>
+        </>
+    )
 }
 
 export default App
