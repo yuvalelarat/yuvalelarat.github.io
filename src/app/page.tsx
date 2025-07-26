@@ -9,7 +9,7 @@ export default function Home() {
     toast(
       "This Portfolio is still under construction.\nSome sections may be incomplete.",
       {
-        duration: 4000,
+        duration: 6000,
         icon: '🚧',
       }
     );
