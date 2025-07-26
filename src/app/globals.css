@@ -5,6 +5,17 @@
   --foreground: rgb(148 163 184);
 }
 
+::selection {
+  background: rgba(94, 234, 212);
+  color: rgba(19, 78, 74);
+}
+
+::-moz-selection {
+  background: rgba(94, 234, 212);
+  color: rgba(19, 78, 74);
+}
+
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
