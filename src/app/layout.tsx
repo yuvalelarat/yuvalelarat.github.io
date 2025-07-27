@@ -34,7 +34,7 @@ export default function RootLayout({
       <body className={`${inter.variable} antialiased`}>
         <div
           ref={bgRef}
-          className="pointer-events-none fixed inset-0 z-30 transition duration-300"
+          className="cursor-bg pointer-events-none fixed inset-0 z-30 transition duration-300"
         />
         {children}
         <Toaster/>
