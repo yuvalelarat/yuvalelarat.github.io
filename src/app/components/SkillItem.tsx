@@ -1,4 +1,4 @@
-export default function SkillsItem({skills}: { skills: string[] }) {
+export default function SkillsItem({ skills }: { skills: string[] }) {
     return (
         <ul className="mt-2 flex flex-wrap" aria-label="Technologies used">
             {skills.map(skill => (

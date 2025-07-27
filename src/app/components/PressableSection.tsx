@@ -1,5 +1,5 @@
 export default function PressableSection({ title, href }: { title: string, href: string }) {
-        return (
+    return (
         <li key={title}>
             <a className="group flex items-center py-3 active" href={href}>
                 <span className="nav-indicator mr-4 h-px w-8 bg-slate-600 transition-all group-hover:w-16 group-hover:bg-slate-200 group-focus-visible:w-16 group-focus-visible:bg-slate-200 motion-reduce:transition-none">
@@ -10,4 +10,4 @@ export default function PressableSection({ title, href }: { title: string, href:
             </a>
         </li>
     )
-    }
+}
