@@ -8,7 +8,7 @@ export default function AboutMe() {
         <p className="mb-4">Versatile and detail-oriented Software Developer with hands-on experience in building scalable web and mobile applications. Proficient in modern technologies including JavaScript, TypeScript, React, Node.js, and cloud platforms like AWS. Strong background in full-stack development, microservices architecture, performance optimization, and working in agile, CI/CD-driven environments. Adept at collaborating in cross-functional teams to deliver high-quality, user-focused solutions.
         </p>
         <p>
-          In my spare time, I usually coding, playing video games, expanding my knowledge about technology, hanging out with my friends, or going to the gym.
+          In my spare time, I like to code, play video games, learn more about technology, hang out with friends, or go to the gym.
         </p>
       </div>
     </section>
