@@ -1,4 +1,4 @@
-// import SectionItem from "../components/SectionItem";
+// import PressableSection from "../components/PressableSection";
 import SocialLinks from "../components/SocialLinks";
 
 export default function Header() {
@@ -24,7 +24,7 @@ export default function Header() {
             {/* <nav className="nav hidden lg:block" aria-label="In-page jump links">
               <ul className="mt-16 w-max">
                 {Object.entries(sections).map(([title, href]) => (
-                  <SectionItem key={title} title={title} href={href} />
+                  <PressableSection key={title} title={title} href={href} />
                 ))}
               </ul>
             </nav> */}

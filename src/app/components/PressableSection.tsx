@@ -1,4 +1,4 @@
-export default function SectionItem({ title, href }: { title: string, href: string }) {
+export default function PressableSection({ title, href }: { title: string, href: string }) {
         return (
         <li key={title}>
             <a className="group flex items-center py-3 active" href={href}>
