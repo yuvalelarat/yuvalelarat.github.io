@@ -19,7 +19,7 @@ export default function Header() {
           Tech Explorer | Cloud & Code
         </h2> */}
         <p className="mt-4 max-w-xs leading-normal">
-          I love to build and break stuff
+          I love to build and break stuff.
         </p>
         <SocialLinks />
         <nav className="nav hidden lg:block" aria-label="In-page jump links">
