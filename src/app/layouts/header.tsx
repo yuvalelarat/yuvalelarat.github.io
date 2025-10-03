@@ -15,13 +15,13 @@ export default function Header() {
         <h1 className="text-4xl font-bold tracking-tight text-slate-200 sm:text-5xl">
           Yuval Elarat
         </h1>
-        <h2 className="mt-3 text-lg font-medium tracking-tight text-slate-200 sm:text-xl">
-          Software Developer
-        </h2>
+        {/* <h2 className="mt-3 text-lg font-medium tracking-tight text-slate-200 sm:text-xl">
+          Tech Explorer | Cloud & Code
+        </h2> */}
         <p className="mt-4 max-w-xs leading-normal">
-          I build, create, and solve real-world problems through code.
+          I love to build and break stuff
         </p>
-        {/* <SocialLinks /> this should not be here!!!!! */}
+        <SocialLinks />
         <nav className="nav hidden lg:block" aria-label="In-page jump links">
               <ul className="mt-16 w-max">
                 {Object.entries(sections).map(([title, href]) => (
@@ -30,7 +30,7 @@ export default function Header() {
               </ul>
             </nav>
       </div>
-      <SocialLinks />
+      {/* <SocialLinks /> */}
     </header>
   )
 }
