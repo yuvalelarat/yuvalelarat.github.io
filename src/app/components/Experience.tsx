@@ -2,7 +2,7 @@ import SectionListItem from "./SectionListItem";
 import SkillsItem from "./SkillItem";
 
 export default function Experience() {
-    const skills = ['TypeScript', 'React', 'React Native', 'Next.js', 'Node.js', 'PostgreSQL', 'Tailwind CSS'];
+    const skills = ['TypeScript', 'React', 'React Native', 'Next.js', 'Node.js', 'Docker', 'Kubernetes', 'PostgreSQL', 'Tailwind CSS'];
 
     return (
         <SectionListItem title="Experience" id="experience">
