@@ -23,7 +23,7 @@ export default function Experience() {
                         </h3>
                             <p className="mt-2 text-sm leading-normal">
                                 Enhanced frontend and backend efficiency by optimizing legacy systems and improving performance.<br />
-                                Built and maintained scalable backend services using Node.js, integrating AWS services such as S3 for file storage and Lambda for serverless processing.<br />
+                                Built and maintained scalable backend services using Node.js, integrating AWS services such as S3, Lambda and SQS.<br />
                                 Managed containerized workloads with Docker and Kubernetes, delivering scalable features via CI/CD pipelines.
                             </p>
                         <SkillsItem skills={skills} />
