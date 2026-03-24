@@ -2,7 +2,7 @@ import SectionListItem from "./SectionListItem";
 import SkillsItem from "./SkillItem";
 
 export default function Experience() {
-    const skills = ['TypeScript', 'React', 'React Native', 'Next.js', 'Node.js', 'Docker', 'Kubernetes', 'PostgreSQL', 'Tailwind CSS'];
+    const skills = ['TypeScript', 'Node.js', 'React', 'React Native', 'AWS', 'Docker', 'Kubernetes', 'Redis cache', 'PostgreSQL'];
 
     return (
         <SectionListItem title="Experience" id="experience">
@@ -21,9 +21,11 @@ export default function Experience() {
                                 </div>
                             </div>
                         </h3>
-                        <p className="mt-2 text-sm leading-normal">
-                            Improved mobile app performance and significantly reduced its size. Enhanced backend efficiency by optimizing legacy systems. Delivered scalable features across web and mobile while working in an agile, fast-paced environment with continuous integration and deployment
-                        </p>
+                            <p className="mt-2 text-sm leading-normal">
+                                Enhanced frontend and backend efficiency by optimizing legacy systems and improving performance.<br />
+                                Built and maintained scalable backend services using Node.js, integrating AWS services such as S3 for file storage and Lambda for serverless processing.<br />
+                                Managed containerized workloads with Docker and Kubernetes, delivering scalable features via CI/CD pipelines.
+                            </p>
                         <SkillsItem skills={skills} />
                     </div>
                 </div>
