@@ -16,7 +16,7 @@ export default function Header() {
           Yuval Elarat
         </h1>
         <h2 className="mt-3 text-lg font-medium tracking-tight text-slate-200 sm:text-xl">
-          Software Developer
+          Software Engineer
         </h2>
         <p className="mt-4 max-w-xs leading-normal">
           I build, create, and solve real-world problems through code.

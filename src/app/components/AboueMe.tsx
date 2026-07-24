@@ -5,7 +5,7 @@ export default function AboutMe() {
         <h2 className="text-sm font-bold uppercase tracking-widest text-slate-200 lg:sr-only">About</h2>
       </div>
       <div>
-        <p className="mb-4">Versatile and detail-oriented Software Developer with hands-on experience in building scalable web and mobile applications. Proficient in modern technologies including JavaScript, TypeScript, React, Node.js, and cloud platforms like AWS. Strong background in full-stack development, microservices architecture, performance optimization, and working in agile, CI/CD-driven environments. Adept at collaborating in cross-functional teams to deliver high-quality, user-focused solutions.
+        <p className="mb-4">Versatile and detail-oriented Software Engineer with hands-on experience in building scalable web and mobile applications. Proficient in modern technologies including JavaScript, TypeScript, React, Node.js, and cloud platforms like AWS. Strong background in full-stack development, microservices architecture, performance optimization, and working in agile, CI/CD-driven environments. Adept at collaborating in cross-functional teams to deliver high-quality, user-focused solutions.
         </p>
         <p>
           In my spare time, I like to code, play video games, learn more about technology, hang out with friends, or go to the gym.
