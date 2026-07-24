@@ -225,11 +225,12 @@
 .card {
     width: 100%;
     text-align: center;
-    height: clamp(190px, 34vh, 340px);
+    min-height: clamp(190px, 34vh, 340px);
     display: flex;
     flex-direction: column;
     justify-content: space-between;
     align-items: center;
+    gap: clamp(4px, 1vh, 10px);
     font-size: clamp(0.8rem, 1.9vw, 1rem);
 }
 
@@ -240,9 +241,8 @@
 }
 
 .cardInfo {
-    height: clamp(38px, 6vh, 50px);
-    overflow: hidden;
-    text-overflow: ellipsis;
+    max-width: 90%;
+    margin: 0 auto;
 }
 
 .sliderButton {
