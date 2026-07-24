@@ -1,0 +1,354 @@
+/* All styles are scoped to this module so v1's light theme never leaks into v2. */
+
+.page {
+    /*
+     * Fill exactly one screen on normal/large displays (no scroll), but grow
+     * and allow scrolling on screens too short to fit — so content is never
+     * clipped on small phones instead of scrolling.
+     */
+    min-height: 100vh;
+    min-height: 100dvh;
+    overflow-x: hidden;
+    margin: 0;
+    box-sizing: border-box;
+    font-family: var(--font-poppins), "Poppins", sans-serif;
+    font-weight: 400;
+    color: #000;
+    background-color: #fff;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: clamp(8px, 1.5vh, 18px);
+    padding-bottom: 0;
+}
+
+/*
+ * Tailwind's Preflight (loaded globally) resets all headings and lists to
+ * unstyled. Restore the browser-default look that v1 relied on, scoped here,
+ * with fluid sizes so nothing overflows the viewport.
+ */
+.page h1 {
+    font-size: clamp(1.6rem, 4.5vw, 2.25rem);
+    font-weight: 700;
+}
+
+.page h3 {
+    font-size: clamp(0.95rem, 2.6vw, 1.2rem);
+    font-weight: 700;
+}
+
+.page h4 {
+    font-size: clamp(0.9rem, 2.2vw, 1.05rem);
+    font-weight: 700;
+}
+
+.page ul {
+    list-style: disc;
+    padding-left: clamp(18px, 4vw, 40px);
+    margin: clamp(4px, 1vh, 12px) 0;
+}
+
+.page li {
+    margin: 0.15em 0;
+    font-size: clamp(0.8rem, 1.9vw, 1rem);
+}
+
+.expText {
+    margin: 0.2em 0;
+    font-size: clamp(0.8rem, 1.9vw, 1rem);
+}
+
+/* Neutralise the site-wide teal ::selection for the light v1 theme. */
+.page ::selection {
+    background: rgba(0, 0, 0, 0.15);
+    color: #000;
+}
+
+.page ::-moz-selection {
+    background: rgba(0, 0, 0, 0.15);
+    color: #000;
+}
+
+/* --- Top / typewriter --- */
+.topdiv {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding-top: clamp(28px, 4vh, 40px);
+}
+
+.topdiv h1,
+.topdiv h3 {
+    margin: 0;
+    text-align: center;
+}
+
+.cursor {
+    display: inline-block;
+    margin-left: 2px;
+    animation: blink 1s step-end infinite;
+}
+
+@keyframes blink {
+    0%,
+    100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0;
+    }
+}
+
+/* --- Mid: hello + social + about --- */
+.hellodiv {
+    justify-content: center;
+    align-items: center;
+    display: flex;
+    flex-direction: column;
+    text-align: center;
+    padding: 0 12px;
+    font-size: clamp(0.85rem, 2vw, 1rem);
+}
+
+.underline {
+    text-decoration: underline;
+    text-align: center;
+    margin: 0;
+}
+
+.socialdiv {
+    display: flex;
+    justify-content: center;
+    padding: 5px;
+}
+
+.aboutdiv {
+    justify-content: space-evenly;
+    align-items: flex-start;
+    display: flex;
+    gap: clamp(12px, 4vw, 48px);
+    width: 100%;
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: clamp(2px, 1vh, 10px) clamp(12px, 4vw, 40px) 0;
+    box-sizing: border-box;
+}
+
+@media (max-width: 500px) {
+    .aboutdiv {
+        flex-direction: column;
+        align-items: center;
+    }
+}
+
+.socialIconLink {
+    display: inline-flex;
+    padding: 0 10px;
+    transition: transform 0.3s ease;
+}
+
+.socialIconImg {
+    width: 25px;
+    height: 25px;
+    border-radius: 50%;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    box-shadow: 0px 0px 8px rgba(0, 0, 0, 0.1);
+    object-fit: cover;
+}
+
+.socialIconLink:hover .socialIconImg {
+    filter: grayscale(0%);
+    transform: scale(1.1);
+    box-shadow: 0px 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+/* --- Skills gallery --- */
+.gallery {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    justify-items: center;
+    gap: clamp(4px, 1vw, 10px);
+    padding: clamp(6px, 1.5vh, 20px);
+}
+
+.galleryItemContainer {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.galleryItem {
+    width: clamp(30px, 6vw, 50px);
+    height: clamp(30px, 6vw, 50px);
+    object-fit: cover;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    filter: grayscale(100%);
+    transition: transform 0.3s ease, box-shadow 0.3s ease, filter 0.3s ease;
+}
+
+.galleryItem:hover {
+    transform: scale(1.1);
+    filter: grayscale(0%);
+}
+
+.imageText {
+    padding: clamp(3px, 0.8vh, 8px) 0 clamp(5px, 1vh, 14px);
+    margin: 0;
+    font-size: clamp(11px, 1.6vw, 14px);
+    text-align: center;
+}
+
+/* --- Projects slider --- */
+.sliderContainer {
+    position: relative;
+    width: 80%;
+    max-width: 600px;
+    margin: 0 auto;
+    text-align: center;
+}
+
+.projectsTitle {
+    text-decoration: underline;
+    text-align: center;
+    margin: 0;
+}
+
+.slider {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+}
+
+.card {
+    width: 100%;
+    text-align: center;
+    height: clamp(190px, 34vh, 340px);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: center;
+    font-size: clamp(0.8rem, 1.9vw, 1rem);
+}
+
+.cardImg {
+    width: clamp(150px, 40vw, 250px);
+    height: clamp(95px, 20vh, 170px);
+    object-fit: contain;
+}
+
+.cardInfo {
+    height: clamp(38px, 6vh, 50px);
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.sliderButton {
+    position: absolute;
+    top: 40%;
+    transform: translateY(-50%);
+    font-size: clamp(1.4rem, 4vw, 2rem);
+    background-color: transparent;
+    border: none;
+    color: #000000;
+    cursor: pointer;
+    z-index: 1;
+}
+
+.left {
+    left: 10px;
+}
+
+.right {
+    right: 10px;
+}
+
+.codeLink {
+    background-color: transparent;
+    color: #000;
+    border: 2px solid #000;
+    padding: clamp(8px, 1.2vh, 12px) clamp(16px, 3vw, 24px);
+    font-size: clamp(0.85rem, 1.8vw, 1rem);
+    font-weight: 500;
+    border-radius: 30px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    margin-top: clamp(8px, 1.5vh, 25px);
+}
+
+.codeLink:hover {
+    background-color: #000;
+    color: #fff;
+    border-color: #000;
+}
+
+.codeLink:focus {
+    outline: none;
+}
+
+.dotsContainer {
+    display: flex;
+    justify-content: center;
+    padding-top: clamp(4px, 1vh, 10px);
+}
+
+.dot {
+    width: 10px;
+    height: 10px;
+    margin: 0 5px;
+    border-radius: 50%;
+    background-color: #fff;
+    border: 2px solid #000;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.dot:hover {
+    background-color: #000;
+    border-color: #000;
+}
+
+.dot.active {
+    background-color: #000;
+    border-color: #000;
+}
+
+/* --- Footer --- */
+.bottomdiv {
+    display: flex;
+    justify-content: center;
+    background-color: rgb(41, 41, 41);
+    border: 3px solid rgb(41, 41, 41);
+}
+
+.bottomp {
+    font-size: clamp(11px, 1.6vw, 13px);
+    text-align: center;
+    color: white;
+    margin: 0;
+}
+
+/* --- Back-to-v2 link (new) --- */
+.backLink {
+    position: fixed;
+    top: 12px;
+    left: 12px;
+    z-index: 40;
+    font-size: 13px;
+    color: #000;
+    text-decoration: none;
+    border: 1px solid #000;
+    border-radius: 20px;
+    padding: 6px 12px;
+    background: rgba(255, 255, 255, 0.85);
+    transition: all 0.3s ease;
+}
+
+.backLink:hover {
+    background: #000;
+    color: #fff;
+}

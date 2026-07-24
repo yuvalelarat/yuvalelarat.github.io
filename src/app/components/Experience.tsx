@@ -18,7 +18,7 @@ const experiences: TimelineEntry[] = [
         title: 'Software Engineer',
         subtitle: 'IDF (J6 & Cyber Defense)',
         description: [
-            'Focused on modernizing legacy systems and building scalable backend services,',
+            'Focused on modernizing legacy systems and building scalable services,',
             'leveraging Node.js alongside AWS infrastructure such as S3, Lambda, and SQS,',
             'with an emphasis on containerized workloads and reliable delivery through Docker, Kubernetes, and CI/CD pipelines.',
         ],
