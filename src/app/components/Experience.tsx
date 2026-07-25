@@ -11,7 +11,7 @@ const experiences: TimelineEntry[] = [
             'high-performance software systems integrated into real-time operational environments,',
             'with an emphasis on reliability, distributed architectures, and efficient execution at scale.',
         ],
-        skills: ['Python', 'Multithreading', 'Multiprocessing', 'AWS', 'Kubernetes', 'RabbitMQ', 'Redis cache'],
+        skills: ['Python', 'LangGraph', 'MCP', 'GenAI', 'Multithreading', 'Multiprocessing', 'AWS', 'Kubernetes', 'RabbitMQ', 'Redis cache'],
     },
     {
         period: '2023 - 2025',
