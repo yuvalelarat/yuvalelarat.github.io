@@ -26,6 +26,11 @@ export async function generateMetadata({
 
     if (!post) return {};
 
+    // Social scrapers (LinkedIn, Slack, X, iMessage) can't render SVG preview
+    // images and fall back to scraping the first inline <img>. Point the OG tag
+    // at a rasterised PNG twin of the banner instead — the page hero stays SVG.
+    const ogImage = post.banner?.replace(/\.svg$/, ".png");
+
     return {
         metadataBase: SITE_URL,
         title: `${post.title} · Yuval Elarat`,
@@ -35,7 +40,15 @@ export async function generateMetadata({
             title: post.title,
             description: post.summary,
             publishedTime: post.date,
-            images: post.banner ? [post.banner] : undefined,
+            images: ogImage
+                ? [{ url: ogImage, width: 1600, height: 800, alt: post.bannerAlt ?? post.title }]
+                : undefined,
+        },
+        twitter: {
+            card: "summary_large_image",
+            title: post.title,
+            description: post.summary,
+            images: ogImage ? [ogImage] : undefined,
         },
     };
 }
