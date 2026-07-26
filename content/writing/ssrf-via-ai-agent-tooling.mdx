@@ -89,20 +89,9 @@ load_asset http://httpbin.org/get
 
 The echoed request settled it:
 
-```http
-User-Agent: Python/3.11 aiohttp/3.13.2
-traceparent: 00-<trace-id>-<span-id>-01
-x-datadog-trace-id: <redacted>
-x-datadog-parent-id: <redacted>
-x-datadog-sampling-priority: 1
-```
+![httpbin response showing backend headers and source IP](/writing/ssrf-via-ai-agent-tooling/httpbin-response.png "Python, aiohttp - this request did not come from my browser")
 
-{/* TODO: add screenshot - ![httpbin response showing backend headers and source IP](/writing/ssrf-via-ai-agent-tooling/httpbin-headers.png "Python, aiohttp, and Datadog tracing headers - this request did not come from my browser") */}
-
-Three things stand out. The client is `aiohttp` on Python 3.11, not a browser.
-The request carries `traceparent` and `X-Datadog-*` headers, meaning it was
-emitted from inside an instrumented backend service. And the source IP belonged
-to the platform's infrastructure, not to me.
+Two things stand out. The client is `aiohttp` on Python 3.11, not a browser. And the source IP belonged to the platform's infrastructure, not to me.
 
 The server was making HTTP requests on my behalf.
 
@@ -114,6 +103,8 @@ It did not. Requests to `localhost` were attempted with no allowlist, no
 blocklist, no private-range rejection, and no indication that anything in the
 path between my prompt and the outbound socket was inspecting the destination.
 
+![The agent attempting a request to localhost with no validation blocking it](/writing/ssrf-via-ai-agent-tooling/localhost-attempt.png "The tool followed a localhost target without complaint")
+
 Attempting is not reaching, though. I ran through the usual suspects - 80, 443,
 3000, 5000, 8000, 8080 - and got nothing back from any of them. The tool was
 willing; I just did not know where the service actually lived.
@@ -123,7 +114,7 @@ willing; I just did not know where the service actually lived.
 Rather than keep guessing, I went and looked at the infrastructure. A DNS query
 against the platform's hostname returned a `CNAME` pointing at `*.onrender.com`.
 
-{/* TODO: add screenshot - ![DNS query result showing a CNAME to onrender.com](/writing/ssrf-via-ai-agent-tooling/dns-cname.png "The CNAME gave away the hosting provider") */}
+![DNS query result showing a CNAME to onrender.com](/writing/ssrf-via-ai-agent-tooling/dns-cname.png "The CNAME gave away the hosting provider")
 
 The platform was running on [Render](https://render.com). Render's documented
 default for web services is **port 10000** - a detail that takes about ten

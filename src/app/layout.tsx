@@ -42,7 +42,7 @@ export default function RootLayout({
         {showCursorBg && (
           <div
             ref={bgRef}
-            className="cursor-bg pointer-events-none fixed inset-0 z-30 transition duration-300"
+            className="cursor-bg pointer-events-none fixed inset-0 -z-10 transition duration-300"
           />
         )}
         {children}

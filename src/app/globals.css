@@ -38,5 +38,7 @@ body {
   height: 100vh;
   background: radial-gradient(600px at top left, rgba(29, 78, 216, 0.15), transparent 80%);
   transition: background 0.2s ease;
-  z-index: 9999;
+  /* Behind content, not over it — so the glow reads as ambient background
+     instead of tinting images and text that sit on a transparent page. */
+  z-index: -10;
 }
