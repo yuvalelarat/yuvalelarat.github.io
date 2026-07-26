@@ -7,6 +7,7 @@ export default function Header() {
     About: "#about",
     Experience: "#experience",
     // Projects: "#projects"
+    Writing: "#writing",
     Education: "#education",
   };
 

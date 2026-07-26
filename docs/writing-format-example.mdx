@@ -1,0 +1,78 @@
+---
+title: "Hello, world"
+date: "2026-07-26"
+summary: "A sample post — how this section works, and every element you can use in one. Delete it once you've written something real."
+tags: ["Meta", "Next.js", "MDX"]
+banner: "/writing/hello-world/banner.svg"
+bannerAlt: "Dark gradient banner reading Hello, world"
+---
+
+This is placeholder content. It exists so the Writing section renders end to
+end, and so there's one file to copy when writing the real first post. Delete
+it whenever.
+
+## Adding a post
+
+Drop an `.mdx` file into `content/writing/`. The filename becomes the URL, so
+`scaling-langgraph-agents.mdx` is served at `/writing/scaling-langgraph-agents`.
+No code changes, no imports, no registry to update — the build reads the
+directory.
+
+The frontmatter block at the top drives everything else:
+
+```yaml
+---
+title: "Scaling LangGraph Agents"
+date: "2026-06-14"
+summary: "What broke at 10k concurrent runs."
+tags: ["Python", "LangGraph", "GenAI"]
+banner: "/writing/scaling-langgraph-agents/banner.png"
+bannerAlt: "Queue depth graph spiking past ten thousand"
+---
+```
+
+`title`, `date` and `summary` are required. `tags`, `banner` and `bannerAlt`
+are optional — but if you set `banner`, `bannerAlt` becomes required and the
+build fails without it. Unlabeled images are worse than no images.
+
+Reading time is counted from the body, not authored. Posts sort by `date`,
+newest first. The three most recent appear on the homepage; the rest live at
+[/writing](/writing).
+
+## Images
+
+Put them in `public/writing/<slug>/`. The banner renders as the hero above the
+title and doubles as the thumbnail in the index and the OpenGraph preview.
+
+Screenshots go inline as ordinary markdown. Add a quoted title and it becomes
+a caption:
+
+![A terminal showing a successful Next.js static export](/writing/hello-world/screenshot.svg "Every post gets its own pre-rendered route at build time")
+
+Because these are committed to the repo, keep them at or below 1600px wide.
+Nothing enforces that — it's just courtesy to whoever clones this.
+
+## Everything else
+
+Standard markdown works. **Bold text**, `inline code`, and
+[links](https://nextjs.org/docs/app/building-your-application/deploying/static-exports)
+— external ones open in a new tab automatically, internal ones route through
+Next's client-side navigation.
+
+> Blockquotes render like this. Useful for pulling out a line from a postmortem
+> or quoting the error message that started the whole investigation.
+
+Lists work too:
+
+- Fenced code blocks are styled but not syntax-highlighted yet
+- Adding Shiki later is a contained change — one MDX plugin
+- Until then, plain monospace on a slate background
+
+```python
+# Fenced code blocks keep their whitespace and scroll horizontally
+# rather than wrapping, which matters for long log lines.
+graph = builder.compile(checkpointer=RedisSaver(pool))
+result = await graph.ainvoke(state, config={"recursion_limit": 50})
+```
+
+That's the whole surface. Write the real thing.

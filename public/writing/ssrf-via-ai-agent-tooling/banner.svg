@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 800" width="1600" height="800" role="img" aria-label="A request flowing from a browser through an AI agent into localhost port 10000">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#172033"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.75" cy="0.75" r="0.7">
+      <stop offset="0%" stop-color="#1d4ed8" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="#1d4ed8" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="grid" width="64" height="64" patternUnits="userSpaceOnUse">
+      <path d="M64 0H0V64" fill="none" stroke="#94a3b8" stroke-opacity="0.05" stroke-width="1"/>
+    </pattern>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#5eead4"/>
+    </marker>
+    <marker id="arrowDim" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#64748b"/>
+    </marker>
+  </defs>
+
+  <rect width="1600" height="800" fill="url(#bg)"/>
+  <rect width="1600" height="800" fill="url(#grid)"/>
+  <rect width="1600" height="800" fill="url(#glow)"/>
+
+  <g font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">
+    <text x="110" y="150" fill="#5eead4" font-size="26" font-weight="600" letter-spacing="7">SECURITY RESEARCH</text>
+    <text x="110" y="256" fill="#e2e8f0" font-size="78" font-weight="700" letter-spacing="-1.5">SSRF via AI Agent Tooling</text>
+  </g>
+
+  <g font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="23">
+    <rect x="110" y="410" width="290" height="112" rx="10" fill="#1e293b" stroke="#334155" stroke-width="2"/>
+    <text x="255" y="458" fill="#94a3b8" text-anchor="middle" font-size="19">attacker</text>
+    <text x="255" y="492" fill="#e2e8f0" text-anchor="middle">prompt</text>
+
+    <line x1="412" y1="466" x2="518" y2="466" stroke="#64748b" stroke-width="2.5" marker-end="url(#arrowDim)"/>
+
+    <rect x="530" y="410" width="330" height="112" rx="10" fill="#1e293b" stroke="#334155" stroke-width="2"/>
+    <text x="695" y="458" fill="#94a3b8" text-anchor="middle" font-size="19">agent tool</text>
+    <text x="695" y="492" fill="#e2e8f0" text-anchor="middle">load_asset(url)</text>
+
+    <line x1="872" y1="466" x2="978" y2="466" stroke="#5eead4" stroke-width="2.5" marker-end="url(#arrow)"/>
+
+    <rect x="990" y="410" width="410" height="112" rx="10" fill="#134e4a" fill-opacity="0.35" stroke="#5eead4" stroke-width="2"/>
+    <text x="1195" y="458" fill="#5eead4" text-anchor="middle" font-size="19">internal service</text>
+    <text x="1195" y="492" fill="#e2e8f0" text-anchor="middle">localhost:10000</text>
+  </g>
+
+  <g font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="20" fill="#475569">
+    <text x="530" y="596">no allowlist</text>
+    <text x="530" y="632">no private-range check</text>
+    <text x="530" y="668">no egress filtering</text>
+  </g>
+
+  <line x1="110" y1="596" x2="110" y2="672" stroke="#334155" stroke-width="3"/>
+  <text x="146" y="612" fill="#64748b" font-family="ui-sans-serif, system-ui, sans-serif" font-size="22">reported</text>
+  <text x="146" y="648" fill="#64748b" font-family="ui-sans-serif, system-ui, sans-serif" font-size="22">and resolved</text>
+</svg>
