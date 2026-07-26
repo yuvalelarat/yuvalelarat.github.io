@@ -148,6 +148,40 @@ That is a proxy into the internal network, and it generalizes badly:
 
 The entry point for all of it was a chat box.
 
+## The fix, and the bypass
+
+The report was triaged and a fix shipped. Hand `load_asset` a loopback or
+internal URL now and it refused - the obvious inputs were blocked.
+
+But the check was on the URL I *handed* the tool, not on the URL it ultimately
+*fetched*, and two gaps lived in that gap:
+
+- The filter still trusted anything that looked like a file. A URL ending in
+  `.txt` - `https://example.com/report.txt` - passed.
+- The tool followed HTTP redirects, and nothing re-validated the destination
+  after each hop.
+
+That is enough. I stood up a server whose `.txt` endpoints answered with a
+redirect instead of a file:
+
+```http
+GET /stage-one.txt  ->  302  Location: http://httpbin.org/get
+GET /stage-two.txt  ->  302  Location: http://127.0.0.1:10000/health
+```
+
+Then I handed the tool `https://<my-server>/stage-two.txt`. It passed the
+filter cleanly - external host, `.txt` extension. The server fetched it, got
+back a `302` pointing at `127.0.0.1:10000`, followed it without a second look,
+and returned the loopback service's response to me.
+
+The allowlist was guarding the front door while the tool walked in through the
+redirect.
+
+The lesson is the one every SSRF filter eventually teaches: **validation has to
+happen on the resolved, final destination - after every redirect - not on the
+string the user hands you.** A check that runs once, on the input, is a check
+an open redirect erases.
+
 ## Defense-in-depth takeaway
 
 Two failures stack here, and the second is the one worth internalizing.
@@ -169,8 +203,9 @@ reach:
 
 - **Validate at the tool, not in the prompt.** Instructions are guidance;
   allowlists are enforcement. If the tool must fetch URLs, it should resolve the
-  host and reject loopback, link-local and private ranges - after resolution, to
-  survive DNS rebinding.
+  host and reject loopback, link-local and private ranges - after resolution,
+  and again after every redirect, to survive both DNS rebinding and the open-
+  redirect bypass above. A file extension is not a destination.
 - **Give tools the narrowest capability that works.** A tool that reads project
   files should read project files. Sharing an HTTP client with the fetch path
   because it was convenient is how `load_asset` became an SSRF gadget.
@@ -185,5 +220,8 @@ one.
 
 ## Disclosure
 
-Reported through the vendor's bug bounty program after validation. The issue has
-since been resolved.
+Reported through the vendor's bug bounty program after validation. An initial
+fix was shipped and turned out to be bypassable via the redirect chain above,
+which I demonstrated on the same report; the issue has since been resolved.
+
+![The bug bounty program's $1,500 reward for the report](/writing/ssrf-via-ai-agent-tooling/1500-bounty.png "A $1,500 bounty for the chain")
