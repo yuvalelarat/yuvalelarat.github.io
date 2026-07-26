@@ -166,7 +166,7 @@ redirect instead of a file:
 
 ```http
 GET /stage-one.txt  ->  302  Location: http://httpbin.org/get
-GET /stage-two.txt  ->  302  Location: http://127.0.0.1:10000/health
+GET /stage-two.txt  ->  302  Location: http://127.0.0.1:10000
 ```
 
 Then I handed the tool `https://<my-server>/stage-two.txt`. It passed the
