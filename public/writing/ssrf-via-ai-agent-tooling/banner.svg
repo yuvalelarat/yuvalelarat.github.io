@@ -43,7 +43,7 @@
 
     <rect x="990" y="410" width="410" height="112" rx="10" fill="#134e4a" fill-opacity="0.35" stroke="#5eead4" stroke-width="2"/>
     <text x="1195" y="458" fill="#5eead4" text-anchor="middle" font-size="19">internal service</text>
-    <text x="1195" y="492" fill="#e2e8f0" text-anchor="middle">localhost:10000</text>
+    <text x="1195" y="492" fill="#e2e8f0" text-anchor="middle">localhost</text>
   </g>
 
   <g font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="20" fill="#475569">
@@ -52,7 +52,4 @@
     <text x="530" y="668">no egress filtering</text>
   </g>
 
-  <line x1="110" y1="596" x2="110" y2="672" stroke="#334155" stroke-width="3"/>
-  <text x="146" y="612" fill="#64748b" font-family="ui-sans-serif, system-ui, sans-serif" font-size="22">reported</text>
-  <text x="146" y="648" fill="#64748b" font-family="ui-sans-serif, system-ui, sans-serif" font-size="22">and resolved</text>
 </svg>

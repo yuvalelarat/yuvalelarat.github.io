@@ -26,10 +26,7 @@ export async function generateMetadata({
 
     if (!post) return {};
 
-    // Social scrapers (LinkedIn, Slack, X, iMessage) can't render SVG preview
-    // images and fall back to scraping the first inline <img>. Point the OG tag
-    // at a rasterised PNG twin of the banner instead — the page hero stays SVG.
-    const ogImage = post.banner?.replace(/\.svg$/, ".png");
+    const ogImage = post.banner;
 
     return {
         metadataBase: SITE_URL,
