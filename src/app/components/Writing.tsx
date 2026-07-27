@@ -13,7 +13,7 @@ export default function Writing() {
     return (
         <SectionListItem title="Writing" id="writing">
             {posts.slice(0, HOMEPAGE_POST_COUNT).map((post) => (
-                <PostItem key={post.slug} post={post} />
+                <PostItem key={post.slug} post={post} showThumbnail />
             ))}
             {/* Always shown, not just past the cutoff — otherwise /writing is
                 unreachable from the homepage until the fourth post lands. */}
