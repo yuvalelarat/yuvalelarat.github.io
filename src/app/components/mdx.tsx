@@ -77,7 +77,7 @@ export const mdxComponents: MDXComponents = {
         const [cleanSrc, query] = raw.split("?");
         const size = new URLSearchParams(query ?? "").get("size");
         const maxW =
-            size === "full" ? "max-w-3xl" : size === "wide" ? "max-w-2xl" : "max-w-xl";
+            size === "full" ? "max-w-4xl" : size === "wide" ? "max-w-3xl" : "max-w-xl";
         return (
             <figure className={`mx-auto my-8 ${maxW}`}>
                 {/* eslint-disable-next-line @next/next/no-img-element -- images.unoptimized is on for the static export, so next/image adds nothing but fixed-dimension requirements screenshots can't satisfy. */}

@@ -75,7 +75,7 @@ willing; I just did not know where the service actually lived.
 Rather than keep guessing, I went and looked at the infrastructure. A DNS query
 against the platform's hostname returned a `CNAME` pointing at `*.onrender.com`.
 
-![DNS query result showing a CNAME to onrender.com](/writing/ssrf-via-ai-agent-tooling/dns-cname.png "The CNAME gave away the hosting provider")
+![DNS query result showing a CNAME to onrender.com](/writing/ssrf-via-ai-agent-tooling/dns-cname.png?size=wide "The CNAME gave away the hosting provider")
 
 The platform was running on [Render](https://render.com). Render's documented
 default for web services is **port 10000** - a detail that takes about ten
@@ -185,4 +185,4 @@ Reported through the vendor's bug bounty program after validation. An initial
 fix was shipped and turned out to be bypassable via the redirect chain above,
 which I demonstrated on the same report; the issue has since been resolved.
 
-![The bug bounty program's $1,500 reward for the report](/writing/ssrf-via-ai-agent-tooling/1500-bounty.png "A $1,500 bounty for the chain")
+![The bug bounty program's $1,500 reward for the report](/writing/ssrf-via-ai-agent-tooling/1500-bounty.png?size=wide "A $1,500 bounty for the chain")

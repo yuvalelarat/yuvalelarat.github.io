@@ -57,7 +57,7 @@ export default async function PostPage({ params }: { params: Promise<Params> }) 
     if (!post) notFound();
 
     return (
-        <div className="mx-auto min-h-screen max-w-3xl px-6 py-12 font-sans md:px-12 md:py-20">
+        <div className="mx-auto min-h-screen max-w-4xl px-6 py-12 font-sans md:px-12 md:py-20">
             <Link
                 href="/"
                 className="group inline-flex items-center text-xs font-semibold uppercase tracking-widest text-slate-500 transition-colors hover:text-teal-300 focus-visible:text-teal-300"
