@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 800" width="1600" height="800" role="img" aria-label="A proxy URL breaking out of ArgoCD's shell quoting - the attacker's command substitution glowing inside the constructed GIT_SSH_COMMAND">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#172033"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.72" cy="0.68" r="0.75">
+      <stop offset="0%" stop-color="#1d4ed8" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="#1d4ed8" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="grid" width="64" height="64" patternUnits="userSpaceOnUse">
+      <path d="M64 0H0V64" fill="none" stroke="#94a3b8" stroke-opacity="0.05" stroke-width="1"/>
+    </pattern>
+  </defs>
+
+  <rect width="1600" height="800" fill="url(#bg)"/>
+  <rect width="1600" height="800" fill="url(#grid)"/>
+  <rect width="1600" height="800" fill="url(#glow)"/>
+
+  <g font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">
+    <text x="110" y="150" fill="#5eead4" font-size="26" font-weight="600" letter-spacing="7">SECURITY RESEARCH</text>
+    <text x="110" y="252" fill="#e2e8f0" font-size="70" font-weight="700" letter-spacing="-1.5">Command injection in ArgoCD</text>
+  </g>
+
+  <!-- code-hero panel: the constructed command, with the injected $(...) glowing -->
+  <g font-family="ui-monospace, SFMono-Regular, Menlo, monospace">
+    <rect x="110" y="372" width="1380" height="232" rx="14" fill="#1e293b" stroke="#334155" stroke-width="2"/>
+
+    <text x="150" y="428" fill="#64748b" font-size="22">repo.proxy  &#8594;  SSHCreds.Environ()  &#8594;  GIT_SSH_COMMAND</text>
+
+    <!-- the ProxyCommand line, split so the substitution can be highlighted -->
+    <rect x="694" y="462" width="182" height="46" rx="7" fill="#5eead4" fill-opacity="0.16" stroke="#5eead4" stroke-opacity="0.5" stroke-width="1.5"/>
+    <text y="495" font-size="30">
+      <tspan x="150" fill="#94a3b8">ProxyCommand='connect-proxy -S '</tspan><tspan fill="#5eead4" font-weight="600">$(sh&lt;g)</tspan><tspan fill="#94a3b8">':1080 %h %p'</tspan>
+    </text>
+
+    <text x="708" y="556" fill="#5eead4" font-size="21">&#8593; closes ArgoCD's quote &#183; runs a shell &#183; reopens it</text>
+  </g>
+
+  <g font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="24" fill="#475569">
+    <text x="110" y="664">only  repositories, create</text>
+    <text x="565" y="664" fill="#334155">&#183;</text>
+    <text x="600" y="664">no valid key</text>
+    <text x="835" y="664" fill="#334155">&#183;</text>
+    <text x="870" y="664">no reachable host, no connectivity test</text>
+  </g>
+</svg>

@@ -69,19 +69,28 @@ export const mdxComponents: MDXComponents = {
         />
     ),
     // Screenshots. A markdown title — ![alt](src "caption") — becomes the
-    // caption. Breaks a little wider than the prose column so detail survives.
-    img: ({ src, alt, title }) => (
-        <figure className="mx-auto my-8 max-w-xl">
-            {/* eslint-disable-next-line @next/next/no-img-element -- images.unoptimized is on for the static export, so next/image adds nothing but fixed-dimension requirements screenshots can't satisfy. */}
-            <img
-                src={typeof src === "string" ? src : ""}
-                alt={alt ?? ""}
-                loading="lazy"
-                className="w-full rounded-md ring-1 ring-inset ring-slate-700/50"
-            />
-            {title && (
-                <figcaption className="mt-3 text-center text-xs text-slate-500">{title}</figcaption>
-            )}
-        </figure>
-    ),
+    // caption. Width defaults to a little narrower than the prose column so
+    // detail survives; append `?size=wide` or `?size=full` to the image URL to
+    // widen an individual image (the query is stripped before the fetch).
+    img: ({ src, alt, title }) => {
+        const raw = typeof src === "string" ? src : "";
+        const [cleanSrc, query] = raw.split("?");
+        const size = new URLSearchParams(query ?? "").get("size");
+        const maxW =
+            size === "full" ? "max-w-3xl" : size === "wide" ? "max-w-2xl" : "max-w-xl";
+        return (
+            <figure className={`mx-auto my-8 ${maxW}`}>
+                {/* eslint-disable-next-line @next/next/no-img-element -- images.unoptimized is on for the static export, so next/image adds nothing but fixed-dimension requirements screenshots can't satisfy. */}
+                <img
+                    src={cleanSrc}
+                    alt={alt ?? ""}
+                    loading="lazy"
+                    className="w-full rounded-md ring-1 ring-inset ring-slate-700/50"
+                />
+                {title && (
+                    <figcaption className="mt-3 text-center text-xs text-slate-500">{title}</figcaption>
+                )}
+            </figure>
+        );
+    },
 };

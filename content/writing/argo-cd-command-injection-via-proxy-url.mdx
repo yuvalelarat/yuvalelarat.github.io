@@ -1,0 +1,210 @@
+---
+title: "Command injection in ArgoCD"
+date: "2026-07-31"
+summary: "A GitOps controller that trusts you enough to let you add a repository will also let you run a shell on its repo-server - no valid key, no reachable host, not even a connection attempt required."
+banner: "/writing/argo-cd-command-injection-via-proxy-url/banner.svg"
+bannerAlt: "An attacker-controlled proxy URL flowing through ArgoCD into a GIT_SSH_COMMAND that executes a shell on the repo-server"
+---
+
+ArgoCD is the thing a lot of organisations trust to turn Git into running
+workloads across every cluster they own. Its `repo-server` clones your
+repositories, renders your manifests, and holds the credentials to do both. So
+when I noticed that one of the least interesting fields on a repository - the
+proxy URL - flowed unescaped into a shell command, the question wrote itself:
+how much do you actually need to be allowed to do before ArgoCD will run your
+code for you?
+
+The answer turned out to be very little. A single `repositories, create`
+permission. No valid SSH key. No repository that exists. No host that resolves.
+Not even a completed network connection. The command runs while the shell is
+still *parsing* the line.
+
+## Where a proxy becomes a command
+
+When a repository is configured to authenticate over SSH, ArgoCD builds the
+environment Git will run in. It wants Git's `ssh` to route through a SOCKS5
+proxy if one is set, so it hands `ssh` a `ProxyCommand`. That construction lives
+in `util/git/creds.go`, in `SSHCreds.Environ()`:
+
+```go
+// c.proxy comes straight from the repository's `proxy` field
+parsedProxyURL, err := url.Parse(c.proxy)
+if err != nil {
+    return nil, nil, fmt.Errorf("could not parse proxy URL '%s': %w", c.proxy, err)
+}
+args = append(args, "-o", fmt.Sprintf(
+    "ProxyCommand='connect-proxy -S %s:%s -5 %%h %%p'",
+    parsedProxyURL.Hostname(),
+    parsedProxyURL.Port()))
+// ...
+env = append(env, "GIT_SSH_COMMAND="+strings.Join(args, " "))
+```
+
+Two mistakes are stacked here, and each one is harmless on its own.
+
+The first is the quoting. The proxy host is dropped into a single-quoted string
+- `ProxyCommand='connect-proxy -S <host>:<port> ...'` - which looks safe until
+you remember the attacker controls `<host>`. If the host itself contains a
+single quote, it closes ArgoCD's quote, and whatever follows is no longer a
+string. It is shell.
+
+The second is where this string ends up. `GIT_SSH_COMMAND` is not passed to a
+program as an argument vector. Git runs it through `/bin/sh -c` to launch `ssh`.
+So the whole line - including the attacker's host - gets parsed by a shell.
+Anything of the form `'$(...)'` closes the quote, runs a command substitution,
+and reopens it. The substitution executes during that parse, before `ssh` is
+ever spawned, which is why none of the usual SSH preconditions matter.
+
+The same sink is reachable from more than one place. `Repository.proxy` is the
+obvious one, but `RepoCreds.proxy` reaches it too - credential templates get
+copied onto a repository before the git client is built - and the
+`commit-server` used by the hydrator constructs its git client through the exact
+same `GetGitCreds` path. One bug, several front doors.
+
+## Building a payload out of a hostname
+
+There is a catch that makes this more interesting than a textbook injection: the
+payload has to survive `url.Parse` as a *hostname*. A URL authority cannot
+contain a space (it is rejected outright) or a slash (it silently ends the host
+and starts the path). A quick sweep of every punctuation character shows what
+actually gets through.
+
+![The result of testing each punctuation character against Go's url.Parse host component](/writing/argo-cd-command-injection-via-proxy-url/charset-bypass.png "Command substitution characters survive; spaces and slashes do not")
+
+`$`, `(`, `)`, `;`, `<`, `>`, `=`, `,` and the single quote all pass. Spaces,
+slashes, pipes, backslashes and backticks do not. That rules out writing any
+normal command directly - `id > /tmp/x` needs both a space and a slash - so the
+payload has to be smuggled.
+
+Two constraints shaped the final primitive. Spaces have to come from somewhere,
+and on the `repo-server` image Git's `/bin/sh` is `dash`, where `$IFS` is unset
+and expands to nothing. So the classic `${IFS}` trick is out. Instead I set the
+field separator myself to a character that *is* allowed - a comma - and let
+word-splitting rebuild the spaces:
+
+```bash
+# every real byte (slashes, spaces, pipes) is hidden inside base32,
+# whose alphabet - A-Z 2-7 = - is entirely url-safe.
+IFS=,                    # commas now split words
+e=echo,<BASE32>          # a comma-joined "echo <BASE32>"
+$e>f                     # -> writes the base32 blob to file f
+c=base32,-d,f            # a comma-joined "base32 -d f"
+$c>g                     # -> decodes it to file g
+sh<g                     # -> runs g, which can contain anything at all
+```
+
+Wrapped back into a proxy URL, the whole exploit is a single value that ArgoCD
+happily accepts as a SOCKS5 endpoint:
+
+```text
+socks5://'$(IFS=,;e=echo,<BASE32>;$e>f;c=base32,-d,f;$c>g;sh<g)':1080
+```
+
+The `<BASE32>` blob decodes to whatever you want - a reverse shell, a credential
+sweep, a redis client. From here the character restrictions are gone; `g` is a
+normal shell script.
+
+## Watching ArgoCD assemble the gun
+
+Before pointing this at a live instance I wanted to see ArgoCD build the
+dangerous string with its own code, not my reconstruction of it. So I called the
+real credential path directly - `Repository.GetGitCreds` -> `NewSSHCreds` ->
+`SSHCreds.Environ()` - and printed what it produced.
+
+![A small Go harness feeding the payload through ArgoCD's real credential code and printing the resulting GIT_SSH_COMMAND](/writing/argo-cd-command-injection-via-proxy-url/argocd-builds-command.png?size=full "ArgoCD places the attacker's command substitution, unquoted, between its own single quotes")
+
+There it is, generated by ArgoCD itself: the attacker's `$(...)` sitting
+unquoted between the single quotes of the `ProxyCommand` value. The moment Git
+runs this through `/bin/sh -c`, the substitution executes.
+
+## How little it takes to fire
+
+Creating a repository is all it takes to reach this code. `CreateRepository` on
+the API server checks exactly one thing before touching your input:
+
+```go
+if err := s.enf.EnforceErr(ctx.Value("claims"),
+        rbac.ResourceRepositories, rbac.ActionCreate,
+        createRBACObject(q.Repo.Project, q.Repo.Repo)); err != nil {
+    return nil, err
+}
+```
+
+`repositories, create` - the permission you would grant a CI pipeline or a
+self-service team that is allowed to register their own Git repos. Nothing about
+this permission hints that it includes "run commands on the repo-server."
+
+With that permission, the flow forks two ways and both end in your code running:
+
+- For a non-project-scoped repo, ArgoCD immediately calls `testRepo`, which asks
+  the repo-server to reach out and validate the repository. That validation runs
+  `git ls-remote`, which builds `GIT_SSH_COMMAND`, which fires the payload. The
+  "connectivity test" that is supposed to be a safety check is itself the
+  trigger - and because the substitution runs during shell parse, it does not
+  matter that the key is fake or that the host never answers.
+- For a project-scoped repo the test is skipped, but the malicious proxy is now
+  stored on the repository. The next time any Application syncs from it, the
+  repo-server generates manifests, builds the same git client, and runs your
+  code then instead.
+
+Either way the credentials are never checked, the host is never reached, and no
+TCP connection has to succeed.
+
+## A shell on the repo-server
+
+Against a lab instance running a vulnerable version, I sent a payload whose
+decoded script simply proved who was running it and swept the process
+environment for anything sensitive. Reproducing the exact `GIT_SSH_COMMAND`
+ArgoCD emits, inside the real `argocd-repo-server` pod, gives this:
+
+![The injected command executing as the repo-server service account and dumping its environment, including the redis password](/writing/argo-cd-command-injection-via-proxy-url/repo-server-rce.png?size=full "Code execution as uid 999 (argocd), with the repo-server's redis password exfiltrated from its environment")
+
+Code execution as the `argocd` service account, and the repo-server's Redis
+password sitting right there in its environment. That is the foothold. What
+makes it matter is *where* it lands.
+
+The `repo-server` is one of the most trust-laden components in the cluster:
+
+- **Every repository credential passes through it.** SSH keys, HTTPS tokens,
+  GitHub App private keys - it decrypts and uses them to clone. A shell here can
+  read them as they are used, which is the keys to your source of truth.
+- **It shares a manifest cache with the rest of ArgoCD over Redis** - and the
+  password to that Redis is, as shown, an environment variable away. Poisoning
+  the cache lets you substitute the manifests ArgoCD believes it rendered from
+  Git. That is a direct path to deploying attacker-chosen workloads into every
+  cluster ArgoCD manages, without ever touching the actual repository.
+- **It is a network position inside the cluster**, with `perl` and `openssl`
+  present on the image - enough for an interactive reverse shell and onward
+  movement.
+
+Through the `commit-server` variant, the same injection reaches the
+write-back path that the hydrator uses, extending the blast radius from reading
+your GitOps supply chain to writing to it.
+
+None of this required stealing a session, phishing an admin, or finding a second
+bug. It required being allowed to add a repository.
+
+## The fix
+
+The root cause is building a shell command by string concatenation and then
+handing it to a shell. Two things close it:
+
+- **Do not interpolate attacker data into a shell string.** The proxy host and
+  port should be validated and passed as arguments, never spliced into a quoted
+  `ProxyCommand` that a shell will re-parse.
+- **Validate the proxy as a proxy.** A SOCKS5 endpoint is a host and a port. A
+  value whose "hostname" contains `$`, `(`, `)`, `;` or a quote is not a
+  hostname, and rejecting it at the API boundary would have stopped this before
+  it ever reached `creds.go`.
+
+The broader lesson is an old one wearing new clothes. `GIT_SSH_COMMAND` is a
+shell string, and the instant you `Join` untrusted input into a shell string you
+have written a shell injection - it does not matter that the field was "just a
+proxy" or that a key was required or that the host was unreachable. The trust
+boundary is not the SSH handshake. It is the moment a shell reads the line.
+
+## Disclosure
+
+This was reported to the ArgoCD maintainers with the analysis and a working
+proof of concept. All testing was performed against a disposable lab cluster I
+control; the credential shown above belongs to that lab and has been retired.
