@@ -1,7 +1,7 @@
 ---
 title: "Command injection in ArgoCD"
 date: "2026-07-31"
-summary: "A GitOps controller that trusts you enough to let you add a repository will also let you run a shell on its repo-server - no valid key, no reachable host, not even a connection attempt required."
+summary: "A CI pipeline token scoped to one project is enough to run a shell on ArgoCD's repo-server, and from there to cluster-admin - no valid key, no reachable host, not even a connection attempt required."
 banner: "/writing/argo-cd-command-injection-via-proxy-url/banner.svg"
 bannerAlt: "An attacker-controlled proxy URL flowing through ArgoCD into a GIT_SSH_COMMAND that executes a shell on the repo-server"
 ---
@@ -14,10 +14,10 @@ proxy URL - flowed unescaped into a shell command, the question wrote itself:
 how much do you actually need to be allowed to do before ArgoCD will run your
 code for you?
 
-The answer turned out to be very little. A single `repositories, create`
-permission. No valid SSH key. No repository that exists. No host that resolves.
-Not even a completed network connection. The command runs while the shell is
-still *parsing* the line.
+The answer turned out to be very little. `repositories, create` on a single
+project - the permission you hand a CI pipeline. No valid SSH key. No repository
+that exists. No host that resolves. Not even a completed network connection. The
+command runs while the shell is still *parsing* the line.
 
 ## Where a proxy becomes a command
 
@@ -73,6 +73,9 @@ obvious one, but `RepoCreds.proxy` reaches it too - credential templates get
 copied onto a repository before the git client is built - and the
 `commit-server` used by the hydrator constructs its git client through the exact
 same `GetGitCreds` path. One bug, several front doors.
+
+The socks5 proxy support that introduced this landed in January 2024 and shipped
+in v2.11.0. It is unchanged on `master` today.
 
 ## Building a payload out of a hostname
 
@@ -134,35 +137,30 @@ func main() {
 `$`, `(`, `)`, `;`, `<`, `>`, `=`, `,` and the single quote all pass. Spaces,
 slashes, pipes, backslashes and backticks do not. That rules out writing any
 normal command directly - `id > /tmp/x` needs both a space and a slash - so the
-payload has to be smuggled.
+payload has to be built out of what is left.
 
-Two constraints shaped the final primitive. Spaces have to come from somewhere,
-and on the `repo-server` image Git's `/bin/sh` is `dash`, where `$IFS` is unset
-and expands to nothing. So the classic `${IFS}` trick is out. Instead I set the
-field separator myself to a character that *is* allowed - a comma - and let
-word-splitting rebuild the spaces:
+Spaces are the easier half. `$IFS` holds the field separator, and every POSIX
+shell initialises it to space-tab-newline, so `cd$IFS..` word-splits into
+`cd ..` without a space ever appearing in the URL. Slashes are the harder half,
+and the answer is that you do not need them: the git process is already running
+somewhere inside `/tmp`, so two `cd$IFS..` hops walk up to a writable directory,
+and every path after that is relative.
 
 ```bash
-# every real byte (slashes, spaces, pipes) is hidden inside base32,
-# whose alphabet - A-Z 2-7 = - is entirely url-safe.
-IFS=,                    # commas now split words
-e=echo,<BASE32>          # a comma-joined "echo <BASE32>"
-$e>f                     # -> writes the base32 blob to file f
-c=base32,-d,f            # a comma-joined "base32 -d f"
-$c>g                     # -> decodes it to file g
-sh<g                     # -> runs g, which can contain anything at all
+cd$IFS..;cd$IFS..     # -> cd .. ; cd ..   walks up into /tmp
+id>pwned              # -> relative redirect, no slash required
 ```
 
-Wrapped back into a proxy URL, the whole exploit is a single value that ArgoCD
-happily accepts as a SOCKS5 endpoint:
+That is enough to prove execution. If you want arbitrary bytes - a reverse shell,
+a credential sweep - you can smuggle them through base32, whose alphabet
+(`A-Z 2-7 =`) is entirely URL-safe, and set `IFS` to a comma yourself so that
+word-splitting rebuilds the spaces for you:
 
 ```text
 socks5://'$(IFS=,;e=echo,<BASE32>;$e>f;c=base32,-d,f;$c>g;sh<g)':1080
 ```
 
-The `<BASE32>` blob decodes to whatever you want - a reverse shell, a credential
-sweep, a redis client. From here the character restrictions are gone; `g` is a
-normal shell script.
+From there the character restrictions are gone; `g` is a normal shell script.
 
 ## Watching ArgoCD assemble the gun
 
@@ -171,11 +169,14 @@ dangerous string with its own code, not my reconstruction of it. So I called the
 real credential path directly - `Repository.GetGitCreds` -> `NewSSHCreds` ->
 `SSHCreds.Environ()` - and printed what it produced.
 
-![A small Go harness feeding the payload through ArgoCD's real credential code and printing the resulting GIT_SSH_COMMAND](/writing/argo-cd-command-injection-via-proxy-url/argocd-builds-command.png?size=full "ArgoCD places the attacker's command substitution, unquoted, between its own single quotes")
+![ArgoCD's real credential path emitting a GIT_SSH_COMMAND with the attacker's commands outside its own quoting, and git executing it](/writing/argo-cd-command-injection-via-proxy-url/argocd-builds-command.png?size=full "ArgoCD places the attacker's commands, unquoted, outside its own single quotes - and git runs the result through a shell")
 
-There it is, generated by ArgoCD itself: the attacker's `$(...)` sitting
-unquoted between the single quotes of the `ProxyCommand` value. The moment Git
-runs this through `/bin/sh -c`, the substitution executes.
+There it is, generated by ArgoCD itself on current `master`: the attacker's
+`;id>pwned;id;` sitting outside the single quotes of the `ProxyCommand` value.
+Hand that environment to `git` the same way `runCredentialedCmd` does and the
+commands run - note `bad line length character: uid=`, which is `id`'s output
+being fed back into the git protocol stream. A fake key and a hostname that does
+not resolve change nothing, because none of that is reached.
 
 ## How little it takes to fire
 
@@ -194,55 +195,142 @@ if err := s.enf.EnforceErr(ctx.Value("claims"),
 self-service team that is allowed to register their own Git repos. Nothing about
 this permission hints that it includes "run commands on the repo-server."
 
-With that permission, the flow forks two ways and both end in your code running:
+There is a connectivity test on this path, and it is worth being precise about
+what it does, because I initially assumed it was the trigger and it is not.
+`CreateRepository` calls `testRepo` only for repositories that are *not*
+project-scoped, and that test resolves refs with go-git in memory - `git.Init`
+over `memory.NewStorage()` - so it never spawns a process and never builds a
+`GIT_SSH_COMMAND`. It neither fires the payload nor detects it. Register the
+repository against a project and the test is skipped altogether.
 
-- For a non-project-scoped repo, ArgoCD immediately calls `testRepo`, which asks
-  the repo-server to reach out and validate the repository. That validation runs
-  `git ls-remote`, which builds `GIT_SSH_COMMAND`, which fires the payload. The
-  "connectivity test" that is supposed to be a safety check is itself the
-  trigger - and because the substitution runs during shell parse, it does not
-  matter that the key is fake or that the host never answers.
-- For a project-scoped repo the test is skipped, but the malicious proxy is now
-  stored on the repository. The next time any Application syncs from it, the
-  repo-server generates manifests, builds the same git client, and runs your
-  code then instead.
+What actually execs is manifest generation. The moment any Application points at
+the repository, the repo-server builds a real git client and shells out to
+`git fetch`. There is a neat accelerant here: `lsRemote` returns immediately if
+the revision looks like a commit SHA, so an Application whose `targetRevision`
+is 40 hex characters skips ref resolution entirely and goes straight to
+`Init()` + `Fetch()`. Point it at a `targetRevision` of
+`0123456789abcdef0123456789abcdef01234567` and the payload fires on the
+controller's next reconcile.
 
-Either way the credentials are never checked, the host is never reached, and no
-TCP connection has to succeed.
+The credentials are never checked, the host is never reached, and no TCP
+connection has to succeed.
 
-## A shell on the repo-server
+The `RepoCreds` variant is worse in one specific way. Registering a *credential
+template* runs no connectivity test at all, and ArgoCD copies its `proxy` field
+onto any repository whose URL it prefix-matches and which has no inline
+credentials of its own. So an attacker can attach a payload to somebody else's
+repository and never create an Application at all - the victim's own
+reconciliation fires it. Matching is longest-prefix, which also means a longer
+prefix quietly wins over an existing legitimate credential set.
 
-Against a lab instance running a vulnerable version, I sent a payload whose
-decoded script simply proved who was running it and swept the process
-environment for anything sensitive. Reproducing the exact `GIT_SSH_COMMAND`
-ArgoCD emits, inside the real `argocd-repo-server` pod, gives this:
+## A shell on the repo-server, from a CI token
 
-![The injected command executing as the repo-server service account and dumping its environment, including the redis password](/writing/argo-cd-command-injection-via-proxy-url/repo-server-rce.png?size=full "Code execution as uid 999 (argocd), with the repo-server's redis password exfiltrated from its environment")
+The interesting question is not whether an administrator can do this. It is which
+of the credentials organisations hand out routinely can. ArgoCD's documented way
+to delegate to a pipeline is an AppProject role token, scoped to one project, and
+`repositories, create` is an unremarkable grant for a pipeline that registers its
+own repositories. Policy validation explicitly permits `repositories` as a
+project-role resource, so this AppProject is entirely legal:
 
-Code execution as the `argocd` service account, and the repo-server's Redis
-password sitting right there in its environment. That is the foothold. What
-makes it matter is *where* it lands.
+```yaml
+roles:
+  - name: deployer
+    policies:
+      - p, proj:ci:deployer, repositories, create, ci/*, allow
+      - p, proj:ci:deployer, applications, create, ci/*, allow
+```
+
+I minted a token from that role against a clean v3.3.4 install and used nothing
+else. No cluster access, no admin session, no valid key, no reachable host.
+
+![A CI-scoped AppProject role token registering a repository with a malicious proxy and an Application with a 40-hex targetRevision, followed by the injected command's output read out of the repo-server pod](/writing/argo-cd-command-injection-via-proxy-url/ci-token-rce.png?size=full "Two API calls from a project-scoped pipeline token, and the injected command runs as uid 999 in argocd-repo-server")
+
+`uid=999(argocd)`, inside `argocd-repo-server`, seconds after the second API
+call. Two requests from a token whose entire authority is one project.
+
+You do not even need cluster access to read the output. Git folds the injected
+command's stdout into what it expects to be the ssh transport, chokes on it, and
+ArgoCD faithfully reports the whole thing - including the `ProxyCommand` it built
+and the command's output - back onto the Application's status:
+
+![ArgoCD reporting the injected ProxyCommand and the executed command's output back through the Application status message](/writing/argo-cd-command-injection-via-proxy-url/status-exfil.png?size=full "bad line length character: uid= - the injected command's stdout, returned through the Application status")
+
+`bad line length character: uid=` is `id` running on the repo-server and its
+output being parsed as a git protocol frame. That is a read-anything primitive
+delivered over the ArgoCD API.
+
+## Why the repo-server is the wrong place to land
 
 The `repo-server` is one of the most trust-laden components in the cluster:
 
-- **Every repository credential passes through it.** SSH keys, HTTPS tokens,
-  GitHub App private keys - it decrypts and uses them to clone. A shell here can
-  read them as they are used, which is the keys to your source of truth.
-- **It shares a manifest cache with the rest of ArgoCD over Redis** - and the
-  password to that Redis is, as shown, an environment variable away. Poisoning
-  the cache lets you substitute the manifests ArgoCD believes it rendered from
-  Git. That is a direct path to deploying attacker-chosen workloads into every
-  cluster ArgoCD manages, without ever touching the actual repository.
-- **It is a network position inside the cluster**, with `perl` and `openssl`
-  present on the image - enough for an interactive reverse shell and onward
-  movement.
+- **Every repository credential passes through it.** Each manifest request
+  carries a full `Repository` object, `sshPrivateKey`, `password` and
+  `bearerToken` included. A shell here sits exactly where other tenants' git
+  credentials arrive to be used.
+- **What it returns becomes what gets applied.** The application-controller
+  applies repo-server's output, and its ClusterRole in the shipped manifests is
+  `apiGroups: ['*'], resources: ['*'], verbs: ['*']`. If repo-server hands back a
+  `ClusterRoleBinding`, the controller is the thing that creates it. This is the
+  path to cluster-admin, and the next section walks it end to end.
+- **Its own ServiceAccount is not the problem.** There is no Role or RoleBinding
+  for it in the base manifests, which is worth saying plainly - the escalation
+  comes from the credentials flowing through it and the manifests flowing out of
+  it, not from its token. A shell in repo-server has no Kubernetes API rights on
+  its own.
+- **Egress is unrestricted.** The repo-server NetworkPolicy declares
+  `policyTypes: [Ingress]` only, and `REDIS_PASSWORD` is sitting in the container
+  environment for lateral reach into the shared cache.
 
-Through the `commit-server` variant, the same injection reaches the
-write-back path that the hydrator uses, extending the blast radius from reading
-your GitOps supply chain to writing to it.
+The same credential path is also reachable from `commit-server` via the same
+`GetGitCreds` call, which extends the reach to the hydrator's write-back path.
+
+## From a pipeline token to cluster-admin
+
+The shell is not the end of the story, so I ran the rest of it. The goal is to
+turn code execution in repo-server into cluster-admin on the cluster ArgoCD runs
+on, and the honest version of that claim has one precondition worth stating
+up front.
+
+repo-server's token has no rights, so the escalation cannot come from calling the
+Kubernetes API directly. It comes from what repo-server produces: manifests. The
+application-controller applies them, and it holds `*` on `*`. But the controller
+also enforces each AppProject's `clusterResourceWhitelist` at sync time, so a
+poisoned manifest only lands if it is rendered for an Application in a project
+that permits cluster-scoped resources. That is not a high bar. The built-in
+`default` project permits everything, and essentially every real ArgoCD runs at
+least one auto-syncing "platform" or app-of-apps Application in a permissive
+project. So the target is not the attacker's own app - it is that co-resident
+platform app.
+
+The setup mirrors that reality. The attacker is the same `proj:ci:deployer`
+pipeline token, confined to a project whose `clusterResourceWhitelist` is empty -
+so ArgoCD refuses to sync any cluster-scoped resource the attacker asks for
+directly. Alongside it runs `platform-bootstrap`, an ordinary auto-syncing app in
+the `default` project, rendering plain manifests from a public repo. The attacker
+has no rights over it.
+
+The proxy RCE drops a small persistent implant - `perl` is on the image - and
+detaches it with `setsid` so it outlives the failed fetch that launched it.
+repo-server does try to make this hard: every repo's working tree lives at
+`/tmp/_argocd-repo/<uuid>`, the parent directory is not listable, and each tree
+is `chmod 0000` at rest and only flipped to `0700` for the few hundred
+milliseconds of a render. So the implant does two things: it learns the tree's
+path from the `git` subprocess's entry in `/proc`, then writes continuously so a
+`ClusterRoleBinding` manifest lands in the window while the tree is unlocked. On
+the platform app's next reconcile, repo-server renders that file as just another
+manifest, and the controller applies it.
+
+![A pipeline token confined to a project that forbids cluster resources; the RCE implant planting a ClusterRoleBinding into the platform app's checkout dir; and the resulting cluster-admin ServiceAccount](/writing/argo-cd-command-injection-via-proxy-url/manifest-poisoning-takeover.png?size=full "The ci token cannot sync a cluster resource, but the RCE poisons a permissive app and the controller binds a kube-system ServiceAccount to cluster-admin")
+
+The binding's `tracking-id` annotation names `platform-bootstrap` as its owner -
+proof the controller created it through a manifest render, not through any API
+call the attacker made. And `kubectl auth can-i '*' '*'` for the chosen
+`kube-system` ServiceAccount answers `yes`. A token that could not create a
+single cluster-scoped object now owns the cluster, because it could add a
+repository. (I removed the binding and the implant afterwards.)
 
 None of this required stealing a session, phishing an admin, or finding a second
-bug. It required being allowed to add a repository.
+bug. It required a pipeline token.
 
 ## The fix
 
@@ -255,7 +343,9 @@ handing it to a shell. Two things close it:
 - **Validate the proxy as a proxy.** A SOCKS5 endpoint is a host and a port. A
   value whose "hostname" contains `$`, `(`, `)`, `;` or a quote is not a
   hostname, and rejecting it at the API boundary would have stopped this before
-  it ever reached `creds.go`.
+  it ever reached `creds.go`. ArgoCD already has a `ParseProxyUrl` helper, but it
+  checks only the scheme and is wired exclusively to cluster proxies - and even
+  wired in here it would have let this payload straight through.
 
 The broader lesson is an old one wearing new clothes. `GIT_SSH_COMMAND` is a
 shell string, and the instant you `Join` untrusted input into a shell string you
@@ -266,5 +356,8 @@ boundary is not the SSH handshake. It is the moment a shell reads the line.
 ## Disclosure
 
 This was reported to the ArgoCD maintainers with the analysis and a working
-proof of concept. All testing was performed against a disposable lab cluster I
-control; the credential shown above belongs to that lab and has been retired.
+proof of concept. Everything above was reproduced end to end against clean
+upstream v3.3.4 installs on disposable clusters I control - one on minikube, one
+on EKS running Kubernetes 1.36 - and the sink was exercised directly against
+`master`. Every token, repository and hostname shown belongs to those labs and
+has been destroyed.
