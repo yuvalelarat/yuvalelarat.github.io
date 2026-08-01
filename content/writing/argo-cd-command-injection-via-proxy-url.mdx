@@ -132,7 +132,7 @@ func main() {
 }
 ```
 
-![The result of testing each punctuation character against Go's url.Parse host component](/writing/argo-cd-command-injection-via-proxy-url/charset-bypass.png "Command substitution characters survive; spaces and slashes do not")
+![The result of testing each punctuation character against Go's url.Parse host component](/writing/argo-cd-command-injection-via-proxy-url/charset-bypass.png?size=wide "Command substitution characters survive; spaces and slashes do not")
 
 `$`, `(`, `)`, `;`, `<`, `>`, `=`, `,` and the single quote all pass. Spaces,
 slashes, pipes, backslashes and backticks do not. That rules out writing any
@@ -286,48 +286,56 @@ The same credential path is also reachable from `commit-server` via the same
 
 ## From a pipeline token to cluster-admin
 
-The shell is not the end of the story, so I ran the rest of it. The goal is to
-turn code execution in repo-server into cluster-admin on the cluster ArgoCD runs
-on, and the honest version of that claim has one precondition worth stating
-up front.
+The shell is not the end of the story, so I ran the rest of it - turning code
+execution in repo-server into cluster-admin on the cluster ArgoCD manages.
 
-repo-server's token has no rights, so the escalation cannot come from calling the
-Kubernetes API directly. It comes from what repo-server produces: manifests. The
-application-controller applies them, and it holds `*` on `*`. But the controller
-also enforces each AppProject's `clusterResourceWhitelist` at sync time, so a
-poisoned manifest only lands if it is rendered for an Application in a project
-that permits cluster-scoped resources. That is not a high bar. The built-in
-`default` project permits everything, and essentially every real ArgoCD runs at
-least one auto-syncing "platform" or app-of-apps Application in a permissive
-project. So the target is not the attacker's own app - it is that co-resident
-platform app.
+Start with what the attacker *cannot* do. repo-server's own ServiceAccount has no
+RBAC, so the shell can't just call the Kubernetes API. And the escalation can't
+come from the pipeline token asking ArgoCD to sync a `ClusterRoleBinding` either:
+the token is confined to project `ci`, whose `clusterResourceWhitelist` is empty,
+and the controller enforces that whitelist at sync time. The token can't even
+reach a sync - `applications, sync` isn't in its grant. Directly, this is a
+dead end.
 
-The setup mirrors that reality. The attacker is the same `proj:ci:deployer`
-pipeline token, confined to a project whose `clusterResourceWhitelist` is empty -
-so ArgoCD refuses to sync any cluster-scoped resource the attacker asks for
-directly. Alongside it runs `platform-bootstrap`, an ordinary auto-syncing app in
-the `default` project, rendering plain manifests from a public repo. The attacker
-has no rights over it.
+![The pipeline token is confined to a project that permits no cluster-scoped resources, and cannot sync one](/writing/argo-cd-command-injection-via-proxy-url/crb-guardrail.png?size=full "proj:ci:deployer is scoped to project ci, whose clusterResourceWhitelist is empty - a ClusterRoleBinding request is refused")
 
-The proxy RCE drops a small persistent implant - `perl` is on the image - and
-detaches it with `setsid` so it outlives the failed fetch that launched it.
-repo-server does try to make this hard: every repo's working tree lives at
-`/tmp/_argocd-repo/<uuid>`, the parent directory is not listable, and each tree
-is `chmod 0000` at rest and only flipped to `0700` for the few hundred
-milliseconds of a render. So the implant does two things: it learns the tree's
-path from the `git` subprocess's entry in `/proc`, then writes continuously so a
-`ClusterRoleBinding` manifest lands in the window while the tree is unlocked. On
-the platform app's next reconcile, repo-server renders that file as just another
-manifest, and the controller applies it.
+So the escalation doesn't go through the attacker's own Application. It goes
+through what repo-server *produces*: manifests. The application-controller applies
+whatever repo-server renders, and its ClusterRole in the shipped manifests is
+`apiGroups: ['*'], resources: ['*'], verbs: ['*']`. The whitelist is checked
+per-Application, so a poisoned manifest lands as long as it is rendered for *some*
+Application in a project that permits cluster-scoped resources. That bar is on the
+floor: the built-in `default` project permits everything, and essentially every
+real ArgoCD runs at least one auto-syncing "platform" or app-of-apps Application
+in a permissive project. In the lab that co-resident app is `platform-bootstrap`,
+an ordinary auto-syncing app in `default`, rendering plain directory manifests
+from a public repo that the attacker has no rights over. It is the render of
+*that* app the attacker has to poison.
 
-![A pipeline token confined to a project that forbids cluster resources; the RCE implant planting a ClusterRoleBinding into the platform app's checkout dir; and the resulting cluster-admin ServiceAccount](/writing/argo-cd-command-injection-via-proxy-url/manifest-poisoning-takeover.png?size=full "The ci token cannot sync a cluster resource, but the RCE poisons a permissive app and the controller binds a kube-system ServiceAccount to cluster-admin")
+Here is the method, and it is a small race. The proxy RCE drops a `perl` implant
+and `setsid`-detaches it so it outlives the failed fetch that launched it.
+repo-server tries to make writing into another app's checkout hard: every repo's
+working tree lives at `/tmp/_argocd-repo/<uuid>`, the parent is not listable, and
+each tree is `chmod 0000` at rest, flipped to `0700` only for the few hundred
+milliseconds of a render. None of that stops a process running as `argocd`, which
+*owns* those directories - it can chmod them back. So the implant learns the live
+tree's uuid from the `git` subprocess's `/proc/<pid>/cwd`, then fights the one
+real obstacle: before each render, repo-server runs `git clean -ffdx`, which
+deletes the planted file, and then reads the directory with a plain `filepath.Walk`.
+The manifest only has to *exist at the instant of that walk*. So the implant
+rewrites the `ClusterRoleBinding` in a tight loop, and on some reconcile the file
+survives from the `clean` to the `Walk`. repo-server renders it as just another
+manifest in `platform-bootstrap`'s output, and the controller - holding `*` on
+`*` - creates it.
+
+![The RCE implant finds the platform app's checkout via /proc and wins the race against git clean to plant a ClusterRoleBinding; the controller applies it and a kube-system ServiceAccount becomes cluster-admin](/writing/argo-cd-command-injection-via-proxy-url/crb-takeover.png?size=full "The planted ClusterRoleBinding survives a render, its tracking-id names platform-bootstrap as owner, and a kube-system ServiceAccount answers yes to can-i '*' '*'")
 
 The binding's `tracking-id` annotation names `platform-bootstrap` as its owner -
 proof the controller created it through a manifest render, not through any API
 call the attacker made. And `kubectl auth can-i '*' '*'` for the chosen
-`kube-system` ServiceAccount answers `yes`. A token that could not create a
-single cluster-scoped object now owns the cluster, because it could add a
-repository. (I removed the binding and the implant afterwards.)
+`kube-system` ServiceAccount answers `yes`. A token that could not sync a single
+cluster-scoped object now owns the cluster, because it could add a repository.
+(I removed the binding and the implant afterwards.)
 
 None of this required stealing a session, phishing an admin, or finding a second
 bug. It required a pipeline token.
