@@ -240,10 +240,8 @@ There is a real constraint on this path, and it cuts both ways. The repocreds
 route enforces its RBAC object as the **bare credential URL**, not
 `project/url` - so a project-scoped grant like `repositories, create, demo/*`
 cannot reach it at all. It needs a URL-matching object such as
-`repositories, create, *`. Both boundaries are worth measuring rather than
-assuming:
-
-![Two HTTP 403 responses, one for a project-scoped tenant reaching for repocreds and one for the repocreds attacker reaching for applications](/writing/argo-cd-command-injection-via-proxy-url/path2-boundaries.png?size=wide "The project-scoped tenant cannot reach repocreds; the repocreds attacker cannot create Applications. Neither needs the other's permission.")
+`repositories, create, *`. So the two paths are genuinely disjoint - neither
+attacker holds the other's permission, and each needs only its own.
 
 ## Who can actually do this
 
@@ -251,16 +249,26 @@ The severity of a command injection is mostly a question of who can reach it, so
 I enumerated it against a live v3.3.4 rather than reasoning about the policy
 engine:
 
-| Principal | Exploit? | Why |
+| Grants held | Reaches the sink? | Executes on |
 | --- | --- | --- |
-| `admin` / `role:admin` | Yes | `*` on `*`. Not interesting. |
-| `role:readonly` | No | `repositories, get` only (`assets/builtin-policy.csv:13`) |
-| **AppProject role JWT** (`proj:<proj>:<role>`) | **Yes** (path 1) | `validatePolicy` permits `repositories` as a project resource (`types.go:2748`) |
-| Account or SSO group, project-scoped `repositories,create` + `applications,create` | Yes (path 1) | The ordinary tenant |
-| Account or SSO group with `repositories,create,*` | Yes (path 2) | No application permission needed at all |
-| Account or SSO group with `repositories,create,<proj>/*` only | No | Cannot create an Application; repocreds rejects project-scoped objects |
+| `repositories,create,<proj>/*` + `applications,create,<proj>/*` | **Yes** - path 1 | Its own Application, two seconds after the call |
+| `repositories,create,*` | **Yes** - path 2 | Someone else's Application, on their reconcile |
+| `repositories,create,<proj>/*` alone | No | Cannot create an Application; repocreds rejects project-scoped objects |
+| `repositories,get` (`role:readonly`) | No | - (`assets/builtin-policy.csv:13`) |
 
-The third row is the one that sets the severity. Argo CD's documented pattern for
+The two `No` rows are the boundaries of the finding, so they are measured rather
+than assumed - the project-scoped tenant reaching for repocreds, and the
+repocreds attacker reaching for applications, both refused:
+
+![Two HTTP 403 responses, one for a project-scoped tenant reaching for repocreds and one for the repocreds attacker reaching for applications](/writing/argo-cd-command-injection-via-proxy-url/path2-boundaries.png?size=wide "The project-scoped tenant cannot reach repocreds; the repocreds attacker cannot create Applications. Neither needs the other's permission.")
+
+What matters is the grant, not the principal holding it. A local account, an SSO
+group and an AppProject role JWT all reach the first row identically -
+`validatePolicy` permits `repositories` as a project resource
+(`types.go:2748`), so a project role can carry it. `admin` works too, and is
+uninteresting.
+
+The first row is the one that sets the severity. Argo CD's documented pattern for
 giving a CI pipeline access is an AppProject role token, and `repositories,
 create` is an entirely natural grant for a pipeline that registers its own
 repos. The token above - `repositories,create,ci/*` plus
@@ -277,8 +285,8 @@ a repository is supposed to cost you access to that repository. It is not
 supposed to cost you a shell on the component that renders every other tenant's
 manifests.
 
-Every CI token shaped like the documentation suggests is a full RCE primitive
-against repo-server.
+A CI token carrying the grants from the documentation's own example is a full
+RCE primitive against repo-server.
 
 ## From a repo-server shell to cluster-admin
 
