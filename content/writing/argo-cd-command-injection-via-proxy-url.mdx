@@ -1,9 +1,9 @@
 ---
-title: "Command injection in ArgoCD repo-server"
+title: "From a CI token to cluster-admin: command injection in Argo CD repo-server"
 date: "2026-08-01"
-summary: "A CI pipeline token scoped to one project is enough to run a shell on ArgoCD's repo-server, and from there to cluster-admin - no valid key, no reachable host, not even a connection attempt required."
+summary: "A CI pipeline token scoped to one project is enough to run a shell on Argo CD's repo-server, and from there to cluster-admin - no valid key, no reachable host, not even a connection attempt required."
 banner: "/writing/argo-cd-command-injection-via-proxy-url/banner.svg"
-bannerAlt: "An attacker-controlled proxy URL flowing through ArgoCD into a GIT_SSH_COMMAND that executes a shell on the repo-server"
+bannerAlt: "An attacker-controlled proxy URL flowing through Argo CD into a GIT_SSH_COMMAND that executes a shell on the repo-server"
 ---
 
 Argo CD's repository object has a `proxy` field. It is there so a git host behind
@@ -74,7 +74,7 @@ single space:
 
 ```
 socks5://a';cd$IFS..;cd$IFS..;id>pwned;id;'b:1080
-        └────────────── injected ──────────────┘
+          └────────── injected ──────────┘
 ```
 
 Rendered into the `ProxyCommand`, the quoting breaks open exactly where you would
@@ -82,7 +82,7 @@ expect:
 
 ```
 ProxyCommand='connect-proxy -S a';cd$IFS..;cd$IFS..;id>pwned;id;'b:1080 -5 %h %p'
-             └─ argo's quote ──┘ └── runs as shell ──┘└─ argo's quote ─┘
+             └─ argo's quote ──┘└──────── runs as shell ───────┘└─ argo's quote ┘
 ```
 
 Driving Argo CD's own credential path with that value - `Repository.GetGitCreds()`
@@ -146,8 +146,8 @@ curl -sk -X POST $API/api/v1/repositories -H "Authorization: Bearer $T" \
 ```
 
 The `sshPrivateKey` is the string `not-a-real-key`. It does not need to be a key,
-because `Environ()` only writes it to a temp file and passes the path to `ssh -i`
-- the shell parses `GIT_SSH_COMMAND` long before `ssh` ever reads the file.
+because `Environ()` only writes it to a temp file and passes the path to
+`ssh -i` - the shell parses `GIT_SSH_COMMAND` long before `ssh` ever reads it.
 
 Then an Application pointing at that repository:
 
@@ -198,7 +198,10 @@ shell has already run the command by the time any of those checks would apply.
 
 ## Path 2: one API call, no application permission
 
-The second path is worse, because it removes the Application entirely.
+The second path trades privilege for interaction. It needs a broader grant than
+the first - as the end of this section shows - but in exchange it removes the
+Application entirely, and with it any action by the attacker after the first
+call.
 
 `RepositoryCredentials` are credential templates matched to repositories by URL
 prefix. When a repository has no inline credentials of its own,
@@ -264,6 +267,16 @@ repos. The token above - `repositories,create,ci/*` plus
 `applications,create,ci/*`, nothing else - reached command execution in **two
 API calls and two seconds**.
 
+The obvious objection is that `repositories, create` is already a privileged
+operation, so code execution from it is not much of an escalation. Argo CD's own
+design says otherwise. Project scoping exists precisely so that a grant can be
+handed to a tenant without handing over the control plane, and the product
+enforces that boundary everywhere else: the same token is refused at repocreds,
+refused at sync, and confined to `ci/*` for everything it can reach. Registering
+a repository is supposed to cost you access to that repository. It is not
+supposed to cost you a shell on the component that renders every other tenant's
+manifests.
+
 Every CI token shaped like the documentation suggests is a full RCE primitive
 against repo-server.
 
@@ -310,8 +323,8 @@ The chain has three steps, and the middle one is the fiddly part:
 ![The attacker's own sync attempt denied, then the tracking-id proving platform-bootstrap applied the binding, and can-i returning yes for the kube-system service account](/writing/argo-cd-command-injection-via-proxy-url/path4-clusteradmin.png?size=wide "The tracking-id proves the controller applied this through platform-bootstrap's render, not a direct API call")
 
 The `tracking-id` annotation is the part that makes this unambiguous. It reads
-`platform-bootstrap:rbac.authorization.k8s.io/ClusterRoleBinding:default/pwned-cluster-admin`
-- meaning the controller applied the object as part of that application's
+`platform-bootstrap:rbac.authorization.k8s.io/ClusterRoleBinding:default/pwned-cluster-admin`,
+which means the controller applied the object as part of that application's
 rendered output, not as a direct API call from anyone. The same token, asked to
 sync a cluster-scoped resource directly, is denied with `PermissionDenied`. So a
 CI pipeline token that could not create a single cluster-scoped object on its own
@@ -332,7 +345,7 @@ through it, not just the attacker's own.
 
 **It is the trusted source of what gets applied.** Everything downstream of
 repo-server treats its output as the intended state of the cluster. That is the
-property Path 4 turns into cluster-admin.
+property the escalation above turns into cluster-admin.
 
 The shipped manifests are helpful in the wrong direction, too. repo-server's
 NetworkPolicy specifies `policyTypes: [Ingress]` only, so egress is unrestricted.
@@ -349,9 +362,9 @@ The same credential path is also reachable from commit-server via `GetGitCreds`
 ## Fixing it
 
 The sink is the place to fix it. `Hostname()` and `Port()` should be rejected
-outright if they contain anything outside the legal host and port character sets
-- or, better, repo-server should stop building a shell string with untrusted text
-inside quotes at all. Quoting is not escaping, and a single-quoted context that
+outright if they contain anything outside the legal host and port character
+sets - or, better, repo-server should stop building a shell string with
+untrusted text inside quotes at all. Quoting is not escaping, and a single-quoted context that
 an attacker can supply a `'` into is not a boundary.
 
 Validating at the API boundary is worth doing as well, on both create and update,
