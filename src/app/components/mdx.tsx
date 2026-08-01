@@ -20,6 +20,31 @@ export const mdxComponents: MDXComponents = {
     li: (props) => <li className="leading-relaxed" {...props} />,
     strong: (props) => <strong className="font-semibold text-slate-200" {...props} />,
     hr: (props) => <hr className="my-10 border-slate-800" {...props} />,
+    // GFM tables. Wrapped so wide tables scroll instead of overflowing the
+    // prose column; borders and a subtly tinted header keep it on-palette.
+    table: (props) => (
+        <div className="my-6 overflow-x-auto rounded-md ring-1 ring-inset ring-slate-700/50">
+            {/* Keep the second column (e.g. "Exploit?") on one line so it gets
+                a little more width instead of wrapping. */}
+            <table
+                className="w-full border-collapse text-sm [&_:is(th,td):nth-child(2)]:whitespace-nowrap"
+                {...props}
+            />
+        </div>
+    ),
+    thead: (props) => <thead className="bg-slate-800/50" {...props} />,
+    th: (props) => (
+        <th
+            className="border-b border-slate-700/50 px-4 py-2.5 text-left font-semibold text-slate-200"
+            {...props}
+        />
+    ),
+    td: (props) => (
+        <td
+            className="border-b border-slate-800 px-4 py-2.5 align-top text-slate-400 [tr:last-child_&]:border-0"
+            {...props}
+        />
+    ),
     blockquote: (props) => (
         <blockquote
             className="my-6 border-l-2 border-teal-300/60 pl-4 italic text-slate-400"

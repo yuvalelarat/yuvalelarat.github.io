@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { MDXRemote } from "next-mdx-remote/rsc";
+import remarkGfm from "remark-gfm";
 import rehypeShiki from "@shikijs/rehype";
 import rehypeUnwrapImages from "rehype-unwrap-images";
 import SkillsItem from "../../components/SkillItem";
@@ -103,6 +104,8 @@ export default async function PostPage({ params }: { params: Promise<Params> }) 
                             mdxOptions: {
                                 // Runs at build time, so highlighting costs
                                 // nothing on the client.
+                                // GFM adds tables, strikethrough, task lists.
+                                remarkPlugins: [remarkGfm],
                                 rehypePlugins: [
                                     // Lift standalone images out of the <p> the
                                     // parser wraps them in — our img renders a
